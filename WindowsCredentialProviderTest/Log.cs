@@ -14,7 +14,8 @@
         {
             var logFileNames = new[]
             {
-                "CredentialProviderLog.log.text"
+                @"C:\net481\CredentialProviderLog.log.txt",
+                "CredentialProviderLog.log.txt"
             }.toList();
             var elt2 = elt ?? Logging.EventLogType.Warning;
 

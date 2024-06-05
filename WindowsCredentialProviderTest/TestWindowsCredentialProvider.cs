@@ -29,10 +29,10 @@
             switch (cpus)
             {
                 case _CREDENTIAL_PROVIDER_USAGE_SCENARIO.CPUS_CREDUI:
-                    return HResultValues.S_OK;
-
                 case _CREDENTIAL_PROVIDER_USAGE_SCENARIO.CPUS_LOGON:
                 case _CREDENTIAL_PROVIDER_USAGE_SCENARIO.CPUS_UNLOCK_WORKSTATION:
+                    return HResultValues.S_OK;
+
                 case _CREDENTIAL_PROVIDER_USAGE_SCENARIO.CPUS_CHANGE_PASSWORD:
                 case _CREDENTIAL_PROVIDER_USAGE_SCENARIO.CPUS_PLAP:
                 case _CREDENTIAL_PROVIDER_USAGE_SCENARIO.CPUS_INVALID:

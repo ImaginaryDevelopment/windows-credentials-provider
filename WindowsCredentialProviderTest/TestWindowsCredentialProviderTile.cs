@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
 using WindowsCredentialProviderTest.OnDemandLogon;
+using WindowsCredentialProviderTest.Properties;
 
 namespace WindowsCredentialProviderTest
 {
@@ -27,6 +28,14 @@ namespace WindowsCredentialProviderTest
                 cpft = _CREDENTIAL_PROVIDER_FIELD_TYPE.CPFT_SUBMIT_BUTTON,
                 dwFieldID = 1,
                 pszLabel = "Login",
+            },
+            new _CREDENTIAL_PROVIDER_FIELD_DESCRIPTOR
+            {
+                cpft = _CREDENTIAL_PROVIDER_FIELD_TYPE.CPFT_TILE_IMAGE,
+                guidFieldType = Guid.Parse("2d837775-f6cd-464e-a745-482fd0b47493"),
+
+                dwFieldID = 2,
+                pszLabel = "Icon",
             }
         };
 
@@ -154,18 +163,19 @@ namespace WindowsCredentialProviderTest
         {
             Log.LogMethodCall();
 
-            var searchFunction = FieldSearchFunctionGenerator(dwFieldID, new[] { _CREDENTIAL_PROVIDER_FIELD_TYPE.CPFT_TILE_IMAGE });
+            //var searchFunction = FieldSearchFunctionGenerator(dwFieldID, new[] { _CREDENTIAL_PROVIDER_FIELD_TYPE.CPFT_TILE_IMAGE });
 
-            if (!CredentialProviderFieldDescriptorList.Any(searchFunction))
-            {
-                phbmp = IntPtr.Zero;
-                return HResultValues.E_NOTIMPL;
-            }
+            //if (!CredentialProviderFieldDescriptorList.Any(searchFunction))
+            //{
+            //    phbmp = IntPtr.Zero;
+            //    return HResultValues.E_NOTIMPL;
+            //}
 
-            var descriptor = CredentialProviderFieldDescriptorList.First(searchFunction);
-            phbmp = IntPtr.Zero; // TODO: show a bitmap
+            //var descriptor = CredentialProviderFieldDescriptorList.First(searchFunction);
+            //phbmp = IntPtr.Zero; // TODO: show a bitmap
+            Marshal.WriteIntPtr(phbmp, Resources.qr_code_148603_640.GetHbitmap());
 
-            return HResultValues.E_NOTIMPL;
+            return HResultValues.S_OK;
         }
 
         public int GetCheckboxValue(uint dwFieldID, out int pbChecked, out string ppszLabel)
