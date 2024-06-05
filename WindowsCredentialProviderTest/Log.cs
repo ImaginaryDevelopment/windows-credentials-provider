@@ -18,7 +18,7 @@
             }.toList();
             var elt2 = elt ?? Logging.EventLogType.Warning;
 
-            var fla = new CredentialHelper.Logging.FullLoggingArgs(CredentialHelper.Logging.LogListAttemptType.TryAll, logFileNames);
+            var fla = new CredentialHelper.Logging.FullLoggingArgs("WindowsCredentialProviderTest", CredentialHelper.Logging.LogListAttemptType.TryAll, logFileNames);
             CredentialHelper.Logging.tryLoggingsWithFallback(fla, text, elt2);
             try
             {
