@@ -1,9 +1,8 @@
 
 # Windows Credential Provider
-_Made only with C#, .NET_
+_Made only with C# and F#, .NET_
 
-There was no implementation in .NET that could work as credential provider in windows,
-so I created this example.
+This is tested as working in windows 10
 
 The code is totally free for any use.
 
