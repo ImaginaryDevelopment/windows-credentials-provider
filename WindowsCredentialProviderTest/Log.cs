@@ -10,7 +10,7 @@
 
     public static class Log
     {
-        public static void LogText(string text, Logging.EventLogType elt= null)
+        public static void LogText(string text, Logging.EventLogType elt = null)
         {
             var logFileNames = new[]
             {
@@ -24,21 +24,19 @@
             try
             {
                 Console.WriteLine(text);
-            }
-            catch (Exception)
+            } catch (Exception)
             {
                 try
                 {
                     Console.WriteLine("(Skipped logging)");
-                }
-                catch (Exception)
+                } catch (Exception)
                 {
                 }
             }
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        public static void LogMethodCall([CallerFilePath]string callerFilePath="", [CallerMemberName] string callerName = "")
+        public static void LogMethodCall([CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerName = "")
         {
             if (callerName.IsNullOrEmpty())
             {

@@ -17,7 +17,7 @@
 
         public TestWindowsCredentialProvider()
         {
-            Log.LogText("TestWindowsCredentialProvider: Created object");
+            Log.LogText(nameof(TestWindowsCredentialProvider) + ": Created object");
         }
 
         public int SetUsageScenario(_CREDENTIAL_PROVIDER_USAGE_SCENARIO cpus, uint dwFlags)
