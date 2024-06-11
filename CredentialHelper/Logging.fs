@@ -1,5 +1,9 @@
 ﻿module CredentialHelper.Logging
+
+open Reusable
+
 open System.IO
+
 let tryFormatEx (ex:exn) =
     try
         ex.GetType().Name + ":" + ex.Message
@@ -7,6 +11,8 @@ let tryFormatEx (ex:exn) =
 
 open System.Diagnostics
 open System.Collections.Generic
+
+type private Stub = class end 
 
 [<RequireQualifiedAccess>]
 type EventLogType =
@@ -120,7 +126,7 @@ type FullLoggingArgs = {
     //FallbackLoggers: (string * LoggerDelegate) IReadOnlyList
 }
 
-let tryLoggingsWithFallback fla (text,elt) =
+let private tryLoggingsWithFallback' fla (text,elt) =
     let logFuncs = [
         //yield! fla.PriorityLoggers
         yield! fla.FileNames |> List.map(fun fn ->
@@ -135,9 +141,89 @@ let tryLoggingsWithFallback fla (text,elt) =
 
     tryLoggings fla.AttemptType logFuncs (text,elt)
 
-//let mutable startupLogged = false
-//let getMyLocation
-//let logStartup fla =
-//    if not startupLogged then
-//        startupLogged <- true
+let tryf f args =
+    try
+        f args |> Some
+    with _ -> None
 
+let mutable startupLogged = false
+
+let asmOpt = lazy(
+    let t = typeof<Stub>
+    ()
+    |> tryf (fun () ->
+        t.GetType().Assembly)
+)
+
+let prefixes =
+    [
+        "c", fun (asm:System.Reflection.Assembly) -> asm.CodeBase
+        "l", fun (asm:System.Reflection.Assembly) -> asm.Location
+    ]
+    |> List.map(fun (n,f) -> n + "|", tryf f)
+    |> Map.ofList
+
+let fixLocationInfo location =
+    match location with
+    | WhiteSpace _ | NonValueString -> None
+    | After "l|" v -> Some v
+    | After "c|" v -> Some v
+    | ValueString _ -> Some location
+    |> Option.map(function
+        | After "file:///" v ->
+            // fix, assuming windows
+            if System.IO.Path.DirectorySeparatorChar = '\\' && v.Contains "/" then
+                v |> replace "/" "\\"
+            else v
+        | v -> v
+    )
+
+let tryGetLocation (asm:System.Reflection.Assembly) =
+    (None, prefixes)
+    ||> Map.fold(fun state prefix attemptF ->
+        match state with
+        | Some l -> Some l
+        | None ->
+            attemptF asm |> Option.bind fixLocationInfo |> Option.map (fun l -> prefix + "|" + l)
+    )
+        //tryf (fun () ->
+        //    "c|" + asm.CodeBase)
+        //|> Option.orElseWith(fun () ->
+        //    tryf (fun () -> "l|" + asm.Location)
+        //)
+
+let tryGetFileInfo (location:string) =
+    // codebase may produce this: file:///C:/Users/User/AppData/Local/Temp/LINQPad7/_dwololqc/query_kgvigc.dll
+    fixLocationInfo location
+    |> Option.map System.IO.Path.GetFullPath
+    |> Option.filter File.Exists
+    |> Option.bind( tryf (fun location -> System.IO.FileInfo location) )
+
+let logStartup fla =
+    if not startupLogged then
+        startupLogged <- true
+        let log (msg,elt) = tryLoggingsWithFallback' fla (msg,elt) |> ignore<Map<_,_>>
+
+        log ("CD:" + System.Environment.CurrentDirectory, EventLogType.Information)
+        asmOpt.Value
+        |> Option.iter(fun asm ->
+            asm
+            |> tryGetLocation
+            |> Option.iter(fun l ->
+                log (l,EventLogType.SuccessAudit)
+                tryGetFileInfo l
+                |> Option.iter(fun fi ->
+                    [
+                        "LastWrite:"+ fi.LastWriteTime.ToString("o")
+                        "Created:" + fi.CreationTime.ToString("o")
+                    ]
+                    |> List.iter(fun msg ->
+                        log ( msg, EventLogType.SuccessAudit)
+                    )
+                )
+            )
+        )
+
+let tryLoggingsWithFallback fla (text,elt) =
+    logStartup fla
+    tryLoggingsWithFallback' fla (text,elt)

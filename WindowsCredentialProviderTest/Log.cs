@@ -36,7 +36,7 @@
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        public static void LogMethodCall([CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerName = "")
+        public static void LogMethodCall(Logging.EventLogType elt = null, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerName = "")
         {
             if (callerName.IsNullOrEmpty())
             {
@@ -48,7 +48,7 @@
                 callerName = methodBase.DeclaringType?.Name + "::" + methodBase.Name;
             } else callerName = callerFilePath.IsNullOrEmpty() ? callerName : callerFilePath + ":" + callerName;
 
-            LogText(callerName, Logging.EventLogType.Information);
+            LogText(callerName, elt ?? Logging.EventLogType.Information);
         }
     }
 }
