@@ -34,7 +34,7 @@ namespace WindowsCredentialProviderTest
                 Dispose(false);
             }
 
-            private void Dispose(bool disposing)
+            void Dispose(bool disposing)
             {
                 if (_string.Buffer != IntPtr.Zero)
                 {
@@ -49,7 +49,11 @@ namespace WindowsCredentialProviderTest
 
             public void Dispose()
             {
-                Dispose(true);
+                // disposals should never throw
+                try
+                {
+                    Dispose(true);
+                } catch { };
             }
 
             #endregion

@@ -9,6 +9,9 @@ using System.Runtime.InteropServices;
 using WindowsCredentialProviderTest.OnDemandLogon;
 using WindowsCredentialProviderTest.Properties;
 
+using CredProviderFieldStruct = CredentialProvider.Interop._CREDENTIAL_PROVIDER_FIELD_DESCRIPTOR;
+using CredProviderUsageEnum = CredentialProvider.Interop._CREDENTIAL_PROVIDER_USAGE_SCENARIO;
+
 namespace WindowsCredentialProviderTest
 {
     [ComVisible(true)]
@@ -16,20 +19,44 @@ namespace WindowsCredentialProviderTest
     [ClassInterface(ClassInterfaceType.None)]
     public sealed class TestWindowsCredentialProviderTile : ITestWindowsCredentialProviderTile
     {
-        public List<_CREDENTIAL_PROVIDER_FIELD_DESCRIPTOR> CredentialProviderFieldDescriptorList = new List<_CREDENTIAL_PROVIDER_FIELD_DESCRIPTOR> {
-            new _CREDENTIAL_PROVIDER_FIELD_DESCRIPTOR
+
+        ICredentialProviderCredentialEvents credentialProviderCredentialEvents;
+#if AUTOLOGIN
+        TimerOnDemandLogon timerOnDemandLogon;
+        bool shouldAutoLogin;
+#endif
+
+        public TestWindowsCredentialProviderTile(
+            TestWindowsCredentialProvider testWindowsCredentialProvider,
+            CredProviderUsageEnum usageScenario
+        )
+        {
+            this.testWindowsCredentialProvider = testWindowsCredentialProvider;
+            this.usageScenario = usageScenario;
+        }
+
+        // variables presumably here for debugging visibility
+        // https://stackoverflow.com/questions/3820985/suppressing-is-never-used-and-is-never-assigned-to-warnings-in-c-sharp
+#pragma warning disable IDE0052 // Remove unread private members
+        readonly TestWindowsCredentialProvider testWindowsCredentialProvider;
+        readonly CredProviderUsageEnum usageScenario;
+#pragma warning restore IDE0052 // Remove unread private members
+
+        public List<CredProviderFieldStruct> CredentialProviderFieldDescriptorList = new List<CredProviderFieldStruct> {
+            new CredProviderFieldStruct
             {
                 cpft = _CREDENTIAL_PROVIDER_FIELD_TYPE.CPFT_SMALL_TEXT,
                 dwFieldID = 0,
                 pszLabel = "Rebootify Awesomeness",
             },
-            new _CREDENTIAL_PROVIDER_FIELD_DESCRIPTOR
+            new CredProviderFieldStruct
             {
                 cpft = _CREDENTIAL_PROVIDER_FIELD_TYPE.CPFT_SUBMIT_BUTTON,
                 dwFieldID = 1,
                 pszLabel = "Login",
             },
-            new _CREDENTIAL_PROVIDER_FIELD_DESCRIPTOR
+            // this was added to get a tile working
+            new CredProviderFieldStruct
             {
                 cpft = _CREDENTIAL_PROVIDER_FIELD_TYPE.CPFT_TILE_IMAGE,
                 guidFieldType = Guid.Parse("2d837775-f6cd-464e-a745-482fd0b47493"),
@@ -38,21 +65,6 @@ namespace WindowsCredentialProviderTest
                 pszLabel = "Icon",
             }
         };
-
-        readonly TestWindowsCredentialProvider testWindowsCredentialProvider;
-        readonly _CREDENTIAL_PROVIDER_USAGE_SCENARIO usageScenario;
-        ICredentialProviderCredentialEvents credentialProviderCredentialEvents;
-        TimerOnDemandLogon timerOnDemandLogon;
-        bool shouldAutoLogin = false;
-
-        public TestWindowsCredentialProviderTile(
-            TestWindowsCredentialProvider testWindowsCredentialProvider,
-            _CREDENTIAL_PROVIDER_USAGE_SCENARIO usageScenario
-        )
-        {
-            this.testWindowsCredentialProvider = testWindowsCredentialProvider;
-            this.usageScenario = usageScenario;
-        }
 
         public int Advise(ICredentialProviderCredentialEvents pcpce)
         {
@@ -86,7 +98,7 @@ namespace WindowsCredentialProviderTest
         {
             Log.LogMethodCall();
 
-#if AUTOLOGIN 
+#if AUTOLOGIN
             if (!shouldAutoLogin)
             {
                 timerOnDemandLogon = new TimerOnDemandLogon(
@@ -112,18 +124,22 @@ namespace WindowsCredentialProviderTest
             return HResultValues.S_OK;
         }
 
+#if AUTOLOGIN
         void TimerOnDemandLogon_TimerEnded()
         {
             // Sync other data from your async service here
             shouldAutoLogin = true;
         }
+#endif
 
         public int SetDeselected()
         {
             Log.LogMethodCall();
 
+#if AUTOLOGIN
             timerOnDemandLogon?.Dispose();
             timerOnDemandLogon = null;
+#endif
 
             return HResultValues.E_NOTIMPL;
         }
@@ -327,7 +343,9 @@ namespace WindowsCredentialProviderTest
             }
             finally
             {
+#if AUTOLOGIN
                 shouldAutoLogin = false; // Block auto-login from going full-retard
+#endif
             }
 
             pcpgsr = _CREDENTIAL_PROVIDER_GET_SERIALIZATION_RESPONSE.CPGSR_NO_CREDENTIAL_NOT_FINISHED;
@@ -362,7 +380,7 @@ namespace WindowsCredentialProviderTest
             return (int)status;
         }
 
-        Func<_CREDENTIAL_PROVIDER_FIELD_DESCRIPTOR, bool> FieldSearchFunctionGenerator(uint dwFieldID, _CREDENTIAL_PROVIDER_FIELD_TYPE[] allowedFieldTypes)
+        Func<CredProviderFieldStruct, bool> FieldSearchFunctionGenerator(uint dwFieldID, _CREDENTIAL_PROVIDER_FIELD_TYPE[] allowedFieldTypes)
         {
             return x =>
                 x.dwFieldID == dwFieldID

@@ -40,6 +40,7 @@
         {
             if (callerName.IsNullOrEmpty())
             {
+                // fallback on old method of auto-logging the caller name
                 var st = new StackTrace();
                 var sf = st.GetFrame(1);
 
