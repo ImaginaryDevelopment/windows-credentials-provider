@@ -7,11 +7,11 @@
     [ComVisible(true)]
     [Guid(Constants.CredentialProviderUID)]
     [ClassInterface(ClassInterfaceType.None)]
-    [ProgId("Rebootify.TestWindowsCredentialProvider")]
+    [ProgId(Constants.CredentialProviderProgId)]
     public class TestWindowsCredentialProvider : ITestWindowsCredentialProvider
     {
-        private _CREDENTIAL_PROVIDER_USAGE_SCENARIO usageScenario = _CREDENTIAL_PROVIDER_USAGE_SCENARIO.CPUS_INVALID;
-        private TestWindowsCredentialProviderTile credentialTile = null;
+        _CREDENTIAL_PROVIDER_USAGE_SCENARIO usageScenario = _CREDENTIAL_PROVIDER_USAGE_SCENARIO.CPUS_INVALID;
+        TestWindowsCredentialProviderTile credentialTile = null;
         internal ICredentialProviderEvents CredentialProviderEvents;
         internal uint CredentialProviderEventsAdviseContext = 0;
 

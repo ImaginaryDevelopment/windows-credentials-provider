@@ -39,11 +39,11 @@ namespace WindowsCredentialProviderTest
             }
         };
 
-        private readonly TestWindowsCredentialProvider testWindowsCredentialProvider;
-        private readonly _CREDENTIAL_PROVIDER_USAGE_SCENARIO usageScenario;
-        private ICredentialProviderCredentialEvents credentialProviderCredentialEvents;
-        private TimerOnDemandLogon timerOnDemandLogon;
-        private bool shouldAutoLogin = false;
+        readonly TestWindowsCredentialProvider testWindowsCredentialProvider;
+        readonly _CREDENTIAL_PROVIDER_USAGE_SCENARIO usageScenario;
+        ICredentialProviderCredentialEvents credentialProviderCredentialEvents;
+        TimerOnDemandLogon timerOnDemandLogon;
+        bool shouldAutoLogin = false;
 
         public TestWindowsCredentialProviderTile(
             TestWindowsCredentialProvider testWindowsCredentialProvider,
@@ -112,7 +112,7 @@ namespace WindowsCredentialProviderTest
             return HResultValues.S_OK;
         }
 
-        private void TimerOnDemandLogon_TimerEnded()
+        void TimerOnDemandLogon_TimerEnded()
         {
             // Sync other data from your async service here
             shouldAutoLogin = true;
@@ -346,7 +346,7 @@ namespace WindowsCredentialProviderTest
             return HResultValues.E_NOTIMPL;
         }
 
-        private int RetrieveNegotiateAuthPackage(out uint authPackage)
+        int RetrieveNegotiateAuthPackage(out uint authPackage)
         {
             // TODO: better checking on the return codes
 
@@ -362,7 +362,7 @@ namespace WindowsCredentialProviderTest
             return (int)status;
         }
 
-        private Func<_CREDENTIAL_PROVIDER_FIELD_DESCRIPTOR, bool> FieldSearchFunctionGenerator(uint dwFieldID, _CREDENTIAL_PROVIDER_FIELD_TYPE[] allowedFieldTypes)
+        Func<_CREDENTIAL_PROVIDER_FIELD_DESCRIPTOR, bool> FieldSearchFunctionGenerator(uint dwFieldID, _CREDENTIAL_PROVIDER_FIELD_TYPE[] allowedFieldTypes)
         {
             return x =>
                 x.dwFieldID == dwFieldID

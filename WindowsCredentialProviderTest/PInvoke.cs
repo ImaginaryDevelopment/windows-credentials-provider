@@ -21,10 +21,12 @@ namespace WindowsCredentialProviderTest
 
             public LsaStringWrapper(string value)
             {
-                _string = new LSA_STRING();
-                _string.Length = (ushort)value.Length;
-                _string.MaximumLength = (ushort)value.Length;
-                _string.Buffer = Marshal.StringToHGlobalAnsi(value);
+                _string = new LSA_STRING
+                {
+                    Length = (ushort)value.Length,
+                    MaximumLength = (ushort)value.Length,
+                    Buffer = Marshal.StringToHGlobalAnsi(value)
+                };
             }
 
             ~LsaStringWrapper()

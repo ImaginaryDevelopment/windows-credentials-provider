@@ -134,3 +134,10 @@ let tryLoggingsWithFallback fla (text,elt) =
     ]
 
     tryLoggings fla.AttemptType logFuncs (text,elt)
+
+//let mutable startupLogged = false
+//let getMyLocation
+//let logStartup fla =
+//    if not startupLogged then
+//        startupLogged <- true
+
