@@ -48,7 +48,7 @@
                 callerName = methodBase.DeclaringType?.Name + "::" + methodBase.Name;
             } else callerName = callerFilePath.IsNullOrEmpty() ? callerName : callerFilePath + ":" + callerName;
 
-            LogText(callerName);
+            LogText(callerName, Logging.EventLogType.Information);
         }
     }
 }
