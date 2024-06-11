@@ -6,7 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
-using WindowsCredentialProviderTest.OnDemandLogon;
+
 using WindowsCredentialProviderTest.Properties;
 
 using CredProviderFieldStruct = CredentialProvider.Interop._CREDENTIAL_PROVIDER_FIELD_DESCRIPTOR;
@@ -21,6 +21,13 @@ namespace WindowsCredentialProviderTest
     {
 
         ICredentialProviderCredentialEvents credentialProviderCredentialEvents;
+
+        // more recent example has this:
+        bool IsUnlock { get; set; }
+        // more recent example has this:
+        string CurrentConsoleUser { get; set; } = null;
+
+
 #if AUTOLOGIN
         TimerOnDemandLogon timerOnDemandLogon;
         bool shouldAutoLogin;
@@ -33,6 +40,20 @@ namespace WindowsCredentialProviderTest
         {
             this.testWindowsCredentialProvider = testWindowsCredentialProvider;
             this.usageScenario = usageScenario;
+
+            // more recent example has these:
+            this.IsUnlock = usageScenario.HasFlag(_CREDENTIAL_PROVIDER_USAGE_SCENARIO.CPUS_UNLOCK_WORKSTATION);
+            //this.CurrentConsoleUser = PInvoke.GetConsoleUser();
+        }
+
+        public string GetLabel()
+        {
+            string label = "QRCode Logon";
+            if (this.IsUnlock && !string.IsNullOrWhiteSpace(this.CurrentConsoleUser))
+            {
+                label = "QRCode:" + this.CurrentConsoleUser;
+            }
+            return label;
         }
 
         // variables presumably here for debugging visibility
@@ -42,12 +63,12 @@ namespace WindowsCredentialProviderTest
         readonly CredProviderUsageEnum usageScenario;
 #pragma warning restore IDE0052 // Remove unread private members
 
-        public List<CredProviderFieldStruct> CredentialProviderFieldDescriptorList = new List<CredProviderFieldStruct> {
+        public List<CredProviderFieldStruct> CredentialProviderFieldDescriptorList => new List<CredProviderFieldStruct>(){
             new CredProviderFieldStruct
             {
                 cpft = _CREDENTIAL_PROVIDER_FIELD_TYPE.CPFT_SMALL_TEXT,
                 dwFieldID = 0,
-                pszLabel = "Rebootify Awesomeness",
+                pszLabel = this.GetLabel() // "Rebootify Awesomeness",
             },
             new CredProviderFieldStruct
             {

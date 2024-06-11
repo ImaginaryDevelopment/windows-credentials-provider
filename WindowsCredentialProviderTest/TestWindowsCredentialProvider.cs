@@ -45,7 +45,12 @@
         public int SetSerialization(ref _CREDENTIAL_PROVIDER_CREDENTIAL_SERIALIZATION pcpcs)
         {
             Log.LogMethodCall();
-            return HResultValues.E_NOTIMPL;
+
+            // repo had this:
+            //return HResultValues.E_NOTIMPL;
+
+            // more recent example has this:
+            return HResultValues.S_OK;
         }
 
         public int Advise(ICredentialProviderEvents pcpe, uint upAdviseContext)
@@ -81,15 +86,25 @@
         public int GetFieldDescriptorCount(out uint pdwCount)
         {
             Log.LogMethodCall();
-            pdwCount = (uint)credentialTile.CredentialProviderFieldDescriptorList.Count;
-            return HResultValues.S_OK;
+
+            // repo had this:
+            //pdwCount = (uint)credentialTile.CredentialProviderFieldDescriptorList.Count;
+            //return HResultValues.S_OK;
+
+            // more recent example has this:
+            pdwCount = credentialTile != null ? (uint)credentialTile.CredentialProviderFieldDescriptorList.Count : 0;
+            return credentialTile != null ? HResultValues.S_OK : HResultValues.E_INVALIDARG;
         }
 
         public int GetFieldDescriptorAt(uint dwIndex, [Out] IntPtr ppcpfd) /* _CREDENTIAL_PROVIDER_FIELD_DESCRIPTOR** */
         {
             Log.LogMethodCall();
 
-            if (dwIndex >= credentialTile.CredentialProviderFieldDescriptorList.Count)
+            // repo had this:
+            //if (dwIndex >= credentialTile.CredentialProviderFieldDescriptorList.Count)
+
+            // more recent example has this:
+            if (credentialTile == null || dwIndex >= credentialTile.CredentialProviderFieldDescriptorList.Count)
             {
                 return HResultValues.E_INVALIDARG;
             }
