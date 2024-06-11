@@ -27,6 +27,10 @@ The projects are setup for x64 systems - you might need to change that if you wa
 
 When you run TestConsoleApp you should be able to see your provider under "more choices" (windows 10).
 
+## May have also needed
+
+New-ItemProperty -Path "HKLM:\SOFTWARE\MICROSOFT\Windows\CurrentVersion\Policies\System\" -Name "DontDisplayLastUserName" -PropertyType DWord -Value 1 -Force
+
 ## What it can do
 It connects the logon procedure with alternative means to logon, like images from cameras, voices with microphone.
 
