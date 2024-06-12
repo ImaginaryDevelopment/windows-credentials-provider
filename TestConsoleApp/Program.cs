@@ -15,6 +15,9 @@
             else
             {
                 Console.WriteLine("No credential detected.");
+                using (var form1 = new CredentialHelper.CameraControl.Form1()){
+                    form1.ShowDialog();
+                }
             }
 
             Console.WriteLine("Press any key to continue...");
