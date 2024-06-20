@@ -20,6 +20,8 @@
             Log.LogText(nameof(TestWindowsCredentialProvider) + ": Created object");
         }
 
+        public string SayHello() => "Hello:" + Constants.CredentialProviderUID;
+
         public int SetUsageScenario(_CREDENTIAL_PROVIDER_USAGE_SCENARIO cpus, uint dwFlags)
         {
             Log.LogMethodCall();

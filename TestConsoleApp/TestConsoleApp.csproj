@@ -36,6 +36,9 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="FSharp.Core, Version=8.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\FSharp.Core.8.0.200\lib\netstandard2.0\FSharp.Core.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Windows.Forms" />
@@ -54,11 +57,16 @@
   <ItemGroup>
     <None Include="App.config" />
     <None Include="app.manifest" />
+    <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\CredentialHelper\CredentialHelper.fsproj">
       <Project>{1ff1db38-5c09-4443-9f48-3a00f228dba4}</Project>
       <Name>CredentialHelper</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\WindowsCredentialProviderTest\WindowsCredentialProviderTest.csproj">
+      <Project>{3fd2ba7e-b14c-4691-9517-51011434f147}</Project>
+      <Name>WindowsCredentialProviderTest</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
