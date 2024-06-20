@@ -18,8 +18,19 @@ open OpenCvSharp.Extensions
 
 // https://github.com/lavahasif/camera/blob/master/camera/Form1.cs
 // https://github.com/lavahasif/camera/blob/master/camera/Form1.Designer.cs
+
+// https://stackoverflow.com/questions/17169757/what-is-f-equivalent-of-c-sharp-public-event
+type OnCredentialSubmitHandler = delegate of System.Net.NetworkCredential -> unit
+type OnAction = delegate of unit -> unit
+
+// TODO: when there is no camera available the ui does not indicate anything is wrong
 type Form1() as this =
     inherit System.Windows.Forms.Form()
+
+    let onCredentialSubmitEvent = DelegateEvent<OnCredentialSubmitHandler>()
+    let onCancelEvent = DelegateEvent<OnAction>()
+    let onOkEvent = DelegateEvent<OnAction>()
+    //let onFormClosed = DelegateEvent<OnAction>()
 
     let mutable index = 0
 
@@ -152,3 +163,12 @@ type Form1() as this =
             if disposing && not <| isNull components then
                 components.Dispose()
             base.Dispose disposing
+
+    [<CLIEvent>]
+    member _.OnCredentialSubmit = onCredentialSubmitEvent.Publish
+    [<CLIEvent>]
+    member _.OnCancelEvent = onCancelEvent.Publish
+    [<CLIEvent>]
+    member _.OnOkEvent = onOkEvent.Publish
+    //[<CLIEvent>]
+    //member _.OnFormClosed = onFormClosed.Publish

@@ -1,10 +1,8 @@
-﻿// Uncomment for autologin
-// #define AUTOLOGIN
-
-using CredentialProvider.Interop;
+﻿using CredentialProvider.Interop;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Runtime.InteropServices;
 
 using WindowsCredentialProviderTest.Properties;
@@ -21,17 +19,16 @@ namespace WindowsCredentialProviderTest
     {
 
         ICredentialProviderCredentialEvents credentialProviderCredentialEvents;
+        NetworkCredential _credential;
+
+        // ui offers to make this a singleton lock
+        readonly object _testUILock = new object();
+        CredentialHelper.CameraControl.Form1 _form1;
 
         // more recent example has this:
         bool IsUnlock { get; set; }
         // more recent example has this:
         string CurrentConsoleUser { get; set; } = null;
-
-
-#if AUTOLOGIN
-        TimerOnDemandLogon timerOnDemandLogon;
-        bool shouldAutoLogin;
-#endif
 
         public TestWindowsCredentialProviderTile(
             TestWindowsCredentialProvider testWindowsCredentialProvider,
@@ -44,6 +41,18 @@ namespace WindowsCredentialProviderTest
             // more recent example has these:
             this.IsUnlock = usageScenario.HasFlag(_CREDENTIAL_PROVIDER_USAGE_SCENARIO.CPUS_UNLOCK_WORKSTATION);
             //this.CurrentConsoleUser = PInvoke.GetConsoleUser();
+        }
+
+        void InitUI()
+        {
+            if (_form1 == null) { _form1 = new CredentialHelper.CameraControl.Form1(); }
+            _form1.OnCredentialSubmit += this._form1_OnCredentialSubmit;
+        }
+
+        void _form1_OnCredentialSubmit(NetworkCredential value)
+        {
+            _credential = new NetworkCredential(value.UserName, value.Password, value.Domain);
+            testWindowsCredentialProvider.CredentialProviderEvents?.CredentialsChanged(testWindowsCredentialProvider.AdviseContext);
         }
 
         public string GetLabel()
@@ -118,51 +127,48 @@ namespace WindowsCredentialProviderTest
         public int SetSelected(out int pbAutoLogon)
         {
             Log.LogMethodCall();
-
-#if AUTOLOGIN
-            if (!shouldAutoLogin)
+            if(this._credential != null)
             {
-                timerOnDemandLogon = new TimerOnDemandLogon(
-                    testWindowsCredentialProvider.CredentialProviderEvents,
-                    credentialProviderCredentialEvents,
-                    this,
-                    CredentialProviderFieldDescriptorList[0].dwFieldID,
-                    testWindowsCredentialProvider.CredentialProviderEventsAdviseContext);
-
-                timerOnDemandLogon.TimerEnded += TimerOnDemandLogon_TimerEnded;
-
-                pbAutoLogon = 0;
-            }
-            else
-            {
-                // We got the info from the async timer
                 pbAutoLogon = 1;
+                return HResultValues.S_OK;
             }
-#else
+            lock (_testUILock)
+            {
+                InitUI();
+
+            }
+
             pbAutoLogon = 0; // Auto-logon when the tile is selected
-#endif
 
             return HResultValues.S_OK;
         }
-
-#if AUTOLOGIN
-        void TimerOnDemandLogon_TimerEnded()
-        {
-            // Sync other data from your async service here
-            shouldAutoLogin = true;
-        }
-#endif
 
         public int SetDeselected()
         {
             Log.LogMethodCall();
 
-#if AUTOLOGIN
-            timerOnDemandLogon?.Dispose();
-            timerOnDemandLogon = null;
-#endif
+            lock (_testUILock)
+            {
+                if(_form1 != null)
+                {
+                    if(!_form1.IsDisposed)
+                    {
 
-            return HResultValues.E_NOTIMPL;
+                        try
+                        {
+                            _form1.Hide();
+                        } catch { }
+                        try
+                        {
+                            _form1.Dispose();
+                        } catch { }
+                        _form1 = null;
+                    }
+                }
+                return HResultValues.S_OK;
+            }
+
+            //return HResultValues.E_NOTIMPL;
         }
 
         public int GetFieldState(uint dwFieldID, out _CREDENTIAL_PROVIDER_FIELD_STATE pcpfs,
@@ -190,6 +196,8 @@ namespace WindowsCredentialProviderTest
                 return HResultValues.E_NOTIMPL;
             }
 
+            // HACK: this looks like bad code
+            // TODOL investigate this not using first or default
             var descriptor = CredentialProviderFieldDescriptorList.First(searchFunction);
 
             ppsz = descriptor.pszLabel;
@@ -228,6 +236,8 @@ namespace WindowsCredentialProviderTest
                 return HResultValues.E_NOTIMPL;
             }
 
+            // HACK: this looks like bad code
+            // TODOL investigate this not using first or default
             var descriptor = CredentialProviderFieldDescriptorList.First(searchFunction);
             pbChecked = 0; // TODO: selection state
             ppszLabel = descriptor.pszLabel;
@@ -247,6 +257,8 @@ namespace WindowsCredentialProviderTest
                 return HResultValues.E_NOTIMPL;
             }
 
+            // HACK: this looks like bad code
+            // TODOL investigate this not using first or default
             var descriptor = CredentialProviderFieldDescriptorList.First(searchFunction);
 
             pdwAdjacentTo = descriptor.dwFieldID - 1; // TODO: selection state
@@ -267,6 +279,8 @@ namespace WindowsCredentialProviderTest
                 return HResultValues.E_NOTIMPL;
             }
 
+            // HACK: this looks like bad code
+            // TODOL investigate this not using first or default
             var descriptor = CredentialProviderFieldDescriptorList.First(searchFunction);
             pcItems = 0; // TODO: selection state
             pdwSelectedItem = 0;
@@ -317,11 +331,26 @@ namespace WindowsCredentialProviderTest
             return HResultValues.E_NOTIMPL;
         }
 
-        public int GetSerialization(out _CREDENTIAL_PROVIDER_GET_SERIALIZATION_RESPONSE pcpgsr,
+        public /* unsafe */ int GetSerialization(out _CREDENTIAL_PROVIDER_GET_SERIALIZATION_RESPONSE pcpgsr,
             out _CREDENTIAL_PROVIDER_CREDENTIAL_SERIALIZATION pcpcs, out string ppszOptionalStatusText,
             out _CREDENTIAL_PROVIDER_STATUS_ICON pcpsiOptionalStatusIcon)
         {
             Log.LogMethodCall();
+
+            Log.LogText("NullCredential = " + (this._credential == null));
+            Log.LogText("IsUnlock = " + this.IsUnlock);
+
+            if (this._credential == null)
+            {
+                int pbAutoLogon = -1;
+                SetDeselected();
+                SetSelected(out pbAutoLogon);
+                pcpgsr = _CREDENTIAL_PROVIDER_GET_SERIALIZATION_RESPONSE.CPGSR_NO_CREDENTIAL_NOT_FINISHED;
+                pcpcs = new _CREDENTIAL_PROVIDER_CREDENTIAL_SERIALIZATION();
+                ppszOptionalStatusText = string.Empty;
+                pcpsiOptionalStatusIcon = _CREDENTIAL_PROVIDER_STATUS_ICON.CPSI_NONE;
+                return HResultValues.E_NOTIMPL;
+            }
 
             try
             {
@@ -361,12 +390,6 @@ namespace WindowsCredentialProviderTest
             catch (Exception)
             {
                 // In case of any error, do not bring down winlogon
-            }
-            finally
-            {
-#if AUTOLOGIN
-                shouldAutoLogin = false; // Block auto-login from going full-retard
-#endif
             }
 
             pcpgsr = _CREDENTIAL_PROVIDER_GET_SERIALIZATION_RESPONSE.CPGSR_NO_CREDENTIAL_NOT_FINISHED;
