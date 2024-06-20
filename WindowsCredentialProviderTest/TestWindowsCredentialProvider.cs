@@ -14,6 +14,8 @@
         TestWindowsCredentialProviderTile credentialTile = null;
         internal ICredentialProviderEvents CredentialProviderEvents;
         internal uint CredentialProviderEventsAdviseContext = 0;
+        public uint AdviseContext => this.CredentialProviderEventsAdviseContext;
+
 
         public TestWindowsCredentialProvider()
         {
