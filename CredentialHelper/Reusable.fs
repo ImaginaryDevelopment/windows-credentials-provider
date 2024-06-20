@@ -34,3 +34,8 @@ let afterOrSelf delimiter x = x |> tryAfter delimiter |> Option.defaultValue x
 
 let (|After|_|) delimiter text =
     text |> tryAfter delimiter
+
+module Tuple2 =
+    let mapSnd f (x,y) =
+        x, f y
+    let withSnd y x = x,y

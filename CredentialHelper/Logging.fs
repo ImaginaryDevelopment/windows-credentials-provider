@@ -152,22 +152,25 @@ let asmOpt = lazy(
     let t = typeof<Stub>
     ()
     |> tryf (fun () ->
-        t.GetType().Assembly)
+        t.Assembly
+    )
 )
-
+type AsmFileLocationType =
+    | Codebase
+    | Location
 let prefixes =
     [
-        "c", fun (asm:System.Reflection.Assembly) -> asm.CodeBase
-        "l", fun (asm:System.Reflection.Assembly) -> asm.Location
+        Codebase, fun (asm:System.Reflection.Assembly) -> asm.CodeBase
+        Location, fun (asm:System.Reflection.Assembly) -> asm.Location
     ]
-    |> List.map(fun (n,f) -> n + "|", tryf f)
+    |> List.map(fun (n,f) -> n, tryf f)
     |> Map.ofList
 
 let fixLocationInfo location =
     match location with
     | WhiteSpace _ | NonValueString -> None
-    | After "l|" v -> Some v
-    | After "c|" v -> Some v
+    //| After "l|" v -> Some v
+    //| After "c|" v -> Some v
     | ValueString _ -> Some location
     |> Option.map(function
         | After "file:///" v ->
@@ -184,18 +187,20 @@ let tryGetLocation (asm:System.Reflection.Assembly) =
         match state with
         | Some l -> Some l
         | None ->
-            attemptF asm |> Option.bind fixLocationInfo |> Option.map (fun l -> prefix + "|" + l)
+            attemptF asm |> Option.bind fixLocationInfo |> Option.map (fun l -> prefix, l)
     )
-        //tryf (fun () ->
-        //    "c|" + asm.CodeBase)
-        //|> Option.orElseWith(fun () ->
-        //    tryf (fun () -> "l|" + asm.Location)
-        //)
 
 let tryGetFileInfo (location:string) =
     // codebase may produce this: file:///C:/Users/User/AppData/Local/Temp/LINQPad7/_dwololqc/query_kgvigc.dll
     fixLocationInfo location
-    |> Option.map System.IO.Path.GetFullPath
+    |> Option.bind (fun v ->
+        try
+            System.IO.Path.GetFullPath v
+            |> Some
+        with ex ->
+            eprintfn "Could not get value from location: '%s' - '%s'" ex.Message v
+            None
+    )
     |> Option.filter File.Exists
     |> Option.bind( tryf (fun location -> System.IO.FileInfo location) )
 
@@ -209,8 +214,8 @@ let logStartup fla =
         |> Option.iter(fun asm ->
             asm
             |> tryGetLocation
-            |> Option.iter(fun l ->
-                log (l,EventLogType.SuccessAudit)
+            |> Option.iter(fun (p,l) ->
+                log (string p + "|" + l,EventLogType.SuccessAudit)
                 tryGetFileInfo l
                 |> Option.iter(fun fi ->
                     [
