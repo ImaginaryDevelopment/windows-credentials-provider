@@ -1,6 +1,6 @@
 
 # Windows Credential Provider
-_Made only with C# and F#, .NET_
+_Made with C# and F#, .NET_
 
 This is tested as working in windows 10
 
@@ -41,3 +41,9 @@ It connects the logon procedure with alternative means to logon, like images fro
 I have included the official doc on how to use the credential provider - note that you have to have some knowledge about COM and the examples are in C++.
 
 I have also included the guide on how to (re)export Interop typelib from IDL in windows SDK. You can use that to export almost any component.
+
+## In use file locations
+
+When the provider is in use it may involve the following files
+
+ - "C:\Windows\System32\CredentialProviderLog.log.txt"
