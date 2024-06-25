@@ -30,7 +30,7 @@ let (|ValueString|WhiteSpace|NonValueString|) =
     | x when System.String.IsNullOrEmpty x -> NonValueString
     | x -> WhiteSpace x
 
-type System.String with
+type String with
     static member inline makeIndexFunction f delimiter text =
         failNullOrEmpty (nameof delimiter) delimiter
         Option.ofValueString text
