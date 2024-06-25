@@ -1,5 +1,7 @@
 ﻿module CredentialHelper.CameraControl
 
+open Reusable
+
 open System
 open System.Collections.Generic
 open System.ComponentModel
@@ -23,6 +25,80 @@ open OpenCvSharp.Extensions
 type OnCredentialSubmitHandler = delegate of System.Net.NetworkCredential -> unit
 type OnAction = delegate of unit -> unit
 
+type CameraControl(imageProp: Property<Image>) =
+
+    let mutable index = 0
+
+    let mutable capture : VideoCapture = null
+    // hold onto image so it can be disposed
+    let mutable image: Bitmap = null
+    let mutable camera : Thread = null // Thread(ThreadStart(this.capturecameracallback))
+
+    let mutable isCameraRunning = false
+
+
+    member _.CaptureCamera () =
+        // TODO: consider performance of running in too tight of a loop
+        let captureCameraCallback =
+            let mutable frame: Mat = null
+            fun () ->
+                frame <- new Mat()
+                capture <- new VideoCapture(index)
+                capture.Open index |> ignore<bool>
+                if capture.IsOpened() then
+                    while isCameraRunning do
+                        capture.Read frame |> ignore<bool>
+                        image <- BitmapConverter.ToBitmap frame
+                        imageProp.Getter()
+                        |> Option.ofObj
+                        |> Option.iter(fun image ->
+                            image.Dispose()
+                        )
+                        imageProp.Setter image
+                ()
+        match camera with
+        | null -> ()
+        | _ -> camera.Abort()
+        camera <- Thread(ThreadStart(captureCameraCallback))
+        camera.Start()
+        isCameraRunning <- true
+
+    member _.StopCapture () =
+        if isCameraRunning then
+            isCameraRunning <- false
+            capture :> IDisposable |> _.Dispose()
+            capture |> Option.ofObj |> Option.iter _.Release()
+
+    member _.TakeSnap () =
+        if isCameraRunning then
+            let snapshot = new Bitmap(imageProp.Getter())
+            Ok snapshot
+        else
+            let msg = "Cannot take picture if the camera isn't capturing images"
+            printfn $"{msg}"
+            Error msg
+
+    member _.Dispose() =
+        camera
+        |> Option.ofObj
+        |> Option.iter(fun _ ->
+            if camera.IsAlive then
+                try
+                    camera.Abort()
+                with _ -> ()
+        )
+        let disposals : (string * IDisposable) list =
+            [
+                nameof capture, capture // |> Option.ofObj |> Option.map toDisposable
+                nameof image, image // |> Option.ofObj |> Option.map toDisposable
+            ]
+        disposals
+        |> List.iter (uncurry tryDispose)
+        ()
+
+    interface IDisposable with
+        member x.Dispose() = x.Dispose()
+
 // TODO: when there is no camera available the ui does not indicate anything is wrong
 type Form1() as this =
     inherit System.Windows.Forms.Form()
@@ -32,14 +108,6 @@ type Form1() as this =
     let onOkEvent = DelegateEvent<OnAction>()
     //let onFormClosed = DelegateEvent<OnAction>()
 
-    let mutable index = 0
-
-    let mutable capture : VideoCapture = null
-    let mutable image: Bitmap = null
-    let mutable camera : Thread = null // Thread(ThreadStart(this.capturecameracallback))
-
-    let mutable isCameraRunning = false
-
     let pictureBox1: PictureBox =
         new PictureBox(
             Location=System.Drawing.Point(22,13),
@@ -48,6 +116,10 @@ type Form1() as this =
             TabIndex=0,
             TabStop=false
         )
+
+    let imControl = new CameraControl({Getter=(fun() -> pictureBox1.Image); Setter= fun v -> pictureBox1.Image <- v})
+
+    let generateDefaultPath () = System.String.Format(@"image-{0}.jpg", Guid.NewGuid())
 
     let button1 = new Button(
         Location = new System.Drawing.Point(65, 478),
@@ -69,65 +141,32 @@ type Form1() as this =
        UseVisualStyleBackColor = true
     )
 
-    let captureCameraCallback =
-        let mutable frame: Mat = null
-        fun () ->
-            frame <- new Mat()
-            capture <- new VideoCapture(index)
-            capture.Open(index) |> ignore<bool>
-            if capture.IsOpened() then
-                while isCameraRunning do
-                    capture.Read frame |> ignore<bool>
-                    image <- BitmapConverter.ToBitmap frame
-                    match pictureBox1.Image with
-                    | null -> ()
-                    | image -> image.Dispose()
-                    pictureBox1.Image <- image
-            ()
-
-    let captureCamera () =
-        match camera with
-        | null -> ()
-        | _ -> camera.Abort()
-        camera <- Thread(ThreadStart(captureCameraCallback))
-        camera.Start()
-        ()
-
     let button1Click _ _ =
                 if button1.Text = "Start" then
-                    captureCamera()
+                    imControl.CaptureCamera()
                     button1.Text <- "Stop"
-                    isCameraRunning <- true
                 else
-                    capture.Release()
+                    imControl.StopCapture()
                     button1.Text <- "Start"
-                    isCameraRunning <- false
 
     let button2Click _ _ =
-        if isCameraRunning then
-            let snapshot = new Bitmap(pictureBox1.Image)
-            snapshot.Save(System.String.Format(@"image-{0}.jpg", Guid.NewGuid()))
-            capture.Release()
-            camera.Abort()
-            // this.Close()
-        else
-            printfn "Cannot take picture if the camera isn't capturing images"
-        ()
+        imControl.TakeSnap()
+        |> Result.iter(fun snapshot ->
+            generateDefaultPath()
+            |> snapshot.Save
+        )
 
     let components : System.ComponentModel.IContainer = null
 
     do
         this.InitializeComponent()
-        captureCamera()
+        imControl.CaptureCamera()
         button1.Text <- "Stop"
-        isCameraRunning <- true
-
 
     override this.OnClosed e =
         base.OnClosed e
         try
-            capture.Release()
-            camera.Abort()
+            imControl.Dispose()
         with _ -> ()
 
     member private this.InitializeComponent() =
