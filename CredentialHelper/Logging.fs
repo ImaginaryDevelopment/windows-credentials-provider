@@ -176,7 +176,7 @@ let fixLocationInfo location =
         | After "file:///" v ->
             // fix, assuming windows
             if System.IO.Path.DirectorySeparatorChar = '\\' && v.Contains "/" then
-                v |> replace "/" "\\"
+                v |> System.String.replace "/" "\\"
             else v
         | v -> v
     )

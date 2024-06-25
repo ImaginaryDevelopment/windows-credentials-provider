@@ -47,7 +47,7 @@ type CameraControl(imageProp: Property<Image>) =
                 capture <- new VideoCapture(index)
                 capture.Open index |> ignore<bool>
                 if capture.IsOpened() then
-
+                    isCameraRunning <- true
                     while isCameraRunning do
                         capture.Read frame |> ignore<bool>
                         image <- BitmapConverter.ToBitmap frame
@@ -63,7 +63,6 @@ type CameraControl(imageProp: Property<Image>) =
         | _ -> camera.Abort()
         camera <- Thread(ThreadStart captureCameraCallback)
         camera.Start()
-        isCameraRunning <- true
 
     member _.StopCapture () =
         if isCameraRunning then
@@ -73,8 +72,16 @@ type CameraControl(imageProp: Property<Image>) =
 
     member _.TakeSnap () =
         if isCameraRunning then
-            let snapshot = new Bitmap(imageProp.Getter())
-            Ok snapshot
+            match imageProp.Getter() with
+            | null -> Error "image getter returned null"
+            | image ->
+                try
+                    let snapshot = new Bitmap(image)
+                    Ok snapshot
+                with
+                    | :? ArgumentException as ex ->
+                        Error ex.Message
+
         else
             let msg = "Cannot take picture if the camera isn't capturing images"
             printfn $"{msg}"
@@ -120,6 +127,7 @@ type Form1() as this =
         )
 
     let imControl = new CameraControl({Getter=(fun() -> pictureBox1.Image); Setter= fun v -> pictureBox1.Image <- v})
+    let qrControl = QRCode.QrManager()
 
     let generateDefaultPath () = System.String.Format(@"image-{0}.jpg", Guid.NewGuid())
 
@@ -139,7 +147,7 @@ type Form1() as this =
        Name = "button2",
        Size = new System.Drawing.Size(459, 86),
        TabIndex = 1,
-       Text = "save",
+       Text = "scan",
        UseVisualStyleBackColor = true
     )
 
@@ -147,16 +155,23 @@ type Form1() as this =
                 if button1.Text = "Start" then
                     imControl.CaptureCamera()
                     button1.Text <- "Stop"
+                    button2.Text <- "scan"
                 else
                     imControl.StopCapture()
                     button1.Text <- "Start"
 
     let button2Click _ _ =
         imControl.TakeSnap()
-        |> Result.iter(fun snapshot ->
-            generateDefaultPath()
-            |> snapshot.Save
-        )
+        |> function
+            | Error msg -> System.Windows.Forms.MessageBox.Show(msg) |> ignore
+            | Ok snapshot ->
+            //generateDefaultPath()
+            //|> snapshot.Save
+            qrControl.TryDecode(snapshot)
+            |> Option.iter(fun qrResult ->
+                System.Windows.Forms.MessageBox.Show(qrResult) |> ignore
+                //button2.Text <- qrResult
+            )
 
     let components : System.ComponentModel.IContainer = null
 
