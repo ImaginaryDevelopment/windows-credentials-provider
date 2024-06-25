@@ -25,6 +25,7 @@ open OpenCvSharp.Extensions
 type OnCredentialSubmitHandler = delegate of System.Net.NetworkCredential -> unit
 type OnAction = delegate of unit -> unit
 
+
 type CameraControl(imageProp: Property<Image>) =
 
     let mutable index = 0
@@ -46,6 +47,7 @@ type CameraControl(imageProp: Property<Image>) =
                 capture <- new VideoCapture(index)
                 capture.Open index |> ignore<bool>
                 if capture.IsOpened() then
+
                     while isCameraRunning do
                         capture.Read frame |> ignore<bool>
                         image <- BitmapConverter.ToBitmap frame
@@ -59,7 +61,7 @@ type CameraControl(imageProp: Property<Image>) =
         match camera with
         | null -> ()
         | _ -> camera.Abort()
-        camera <- Thread(ThreadStart(captureCameraCallback))
+        camera <- Thread(ThreadStart captureCameraCallback)
         camera.Start()
         isCameraRunning <- true
 
