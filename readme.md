@@ -1,4 +1,3 @@
-
 # Windows Credential Provider
 _Made with C# and F#, .NET_
 
@@ -18,7 +17,9 @@ Better yet, use a VM to do your experiments.
 _Consider yourself warned._
 
 ## Installation
+
 To start a setup to develop your own Windows Credential Provider:
+
 - Install the COM component by building the project
 - Merge the registry to install the cred. provider
 
@@ -42,8 +43,36 @@ I have included the official doc on how to use the credential provider - note th
 
 I have also included the guide on how to (re)export Interop typelib from IDL in windows SDK. You can use that to export almost any component.
 
+## QR Code reader library
+
+https://github.com/micjahn/ZXing.Net
+
 ## In use file locations
 
 When the provider is in use it may involve the following files
 
  - "C:\Windows\System32\CredentialProviderLog.log.txt"
+
+## About COM Interop
+
+https://stackoverflow.com/questions/3534600/what-does-register-for-com-interop-actually-do
+
+## Useful links
+
+https://dennisbabkin.com/blog/?t=primer-on-writing-credential-provider-in-windows
+https://stackoverflow.com/questions/7092553/turn-a-simple-c-sharp-dll-into-a-com-interop-component
+https://stackoverflow.com/questions/4198583/how-do-i-register-a-net-com-dll-with-regsvr32
+https://github.com/DavidWeiss2/windows-Credential-Provider-library
+https://techcommunity.microsoft.com/t5/itops-talk-blog/deep-dive-logging-on-to-windows/ba-p/2420705?WT.mc_id=modinfra-30798-socuff
+
+## alternate approaches
+
+https://github.com/MutonUfoAI/pgina/tree/master
+
+## machine setup and registry changes (may not be needed)
+
+https://www.makeuseof.com/windows-11-missing-auto-login-fix/
+    - HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\PasswordLess\Device -> DevicePasswordLessBuildVersion=0 (was 2)
+
+https://www.tenforums.com/tutorials/118252-enable-disable-dont-display-username-sign-windows-10-a.html
+
