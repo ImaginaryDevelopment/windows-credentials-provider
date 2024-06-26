@@ -7,7 +7,7 @@ open ZXing.Common
 open System.Drawing
 
 type QrManager () =
-    //let reader = ZXing.BarcodeReader()
+    //let reader = BarcodeReader()
 
     let reader = QrCode.QRCodeReader()
 
