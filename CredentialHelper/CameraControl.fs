@@ -1,6 +1,7 @@
 ﻿module CredentialHelper.CameraControl
 
 open Reusable
+open Reusable.Controls
 
 open System
 open System.Collections.Generic
@@ -23,7 +24,6 @@ open OpenCvSharp.Extensions
 
 // https://stackoverflow.com/questions/17169757/what-is-f-equivalent-of-c-sharp-public-event
 type OnCredentialSubmitHandler = delegate of System.Net.NetworkCredential -> unit
-type OnAction = delegate of unit -> unit
 
 type ProtectedValue<'t> (value: 't, fValidate: unit -> bool) =
     let mutable value = value
@@ -36,7 +36,6 @@ type ProtectedValue<'t> (value: 't, fValidate: unit -> bool) =
             value <- next
             true
         else false
-
 
 type CameraState =
     | Stopped
@@ -93,21 +92,22 @@ type CaptureWrapper () =
     interface IDisposable with
         member this.Dispose() = this.Dispose()
 
-
 type CameraControl(imageProp: Property<Image>) =
 
     let captureWrapper = new CaptureWrapper()
     // hold onto image so it can be disposed
     let mutable image: Bitmap = null
     let mutable cameraThread : Thread = null // Thread(ThreadStart(this.capturecameracallback))
-    let mutable cameraState = Stopped
+    let mutable cameraState = ObservableStore(CameraState.Stopped)
+
+    //member val OnStateChange: (CameraState*CameraState -> unit) option = None
 
     member _.CameraState = cameraState
     // hide details
-    member _.IsRunning = cameraState = CameraState.Started && captureWrapper.IsOpened
+    member _.IsRunning = cameraState.Value = CameraState.Started && captureWrapper.IsOpened
 
     member _.CaptureCamera (index: int) =
-        match cameraState with
+        match cameraState.Value with
         | Started
         | Initializing -> ()
         | Stopped ->
@@ -115,12 +115,12 @@ type CameraControl(imageProp: Property<Image>) =
             let captureCameraCallback =
                 let mutable frame: Mat = null
                 fun () ->
-                    cameraState <- Initializing
+                    cameraState.Value <- Initializing
                     frame <- new Mat()
                     if captureWrapper.TryStart index then
-                        while cameraState <> Stopped do
+                        while cameraState.Value <> Stopped do
                             if captureWrapper.Read frame then
-                                cameraState <- Started
+                                cameraState.Value <- Started
                                 image <- BitmapConverter.ToBitmap frame
                                 imageProp.Getter()
                                 |> Option.ofObj
@@ -129,7 +129,7 @@ type CameraControl(imageProp: Property<Image>) =
                                 )
                                 imageProp.Setter image
                             else
-                                eprintfn "Camera read failed"
+                                eprintfn "Camera read failed: '%A'" cameraState.Value
                     else
                         eprintfn "captureWrapper failed to start"
                     ()
@@ -141,14 +141,14 @@ type CameraControl(imageProp: Property<Image>) =
             cameraThread.Start()
 
     member _.StopCapture () =
-        match cameraState with
+        match cameraState.Value with
         | Stopped -> ()
         | _ ->
-            cameraState <- Stopped
+            cameraState.Value <- Stopped
             captureWrapper.CleanUp()
 
     member _.TakeSnap () =
-        match cameraState with
+        match cameraState.Value with
         | CameraState.Started ->
             match imageProp.Getter() with
             | null -> Error "image getter returned null"
@@ -171,7 +171,7 @@ type CameraControl(imageProp: Property<Image>) =
         cameraThread
         |> Option.ofObj
         |> Option.iter(fun _ ->
-            cameraState <- Stopped
+            cameraState.Value <- Stopped
             if cameraThread.IsAlive then
                 try
                     cameraThread.Abort()
@@ -203,7 +203,6 @@ type Form1() as this =
     let onOkEvent = DelegateEvent<OnAction>()
     //let onFormClosed = DelegateEvent<OnAction>()
 
-
     let pictureBox1: PictureBox =
         new PictureBox(
             Location=System.Drawing.Point(22,13),
@@ -213,6 +212,18 @@ type Form1() as this =
             TabStop=false
         )
 
+    let cleanPictureBox () =
+        match pictureBox1.Image with
+        | null -> ()
+        | x ->
+            try
+                x.Dispose()
+            with ex ->
+                eprintfn "Failed to dispose image: '%s'" ex.Message
+            let f () =
+                pictureBox1.Image <- null
+            pictureBox1 |> ensureInvoke f |> ignore<obj>
+
     let mutable onceInitialized = None
     let imControl =
         let mutable cc : CameraControl option = None
@@ -221,25 +232,28 @@ type Form1() as this =
             |> function
                 | None -> eprintfn "Setter called without camera control"
                 | Some cc ->
-                    if cc.CameraState = CameraState.Started then
+                    if cc.CameraState.Value = CameraState.Started then
                         onceInitialized
                         |> Option.iter(fun f ->
                             f()
                         )
-            pictureBox1.Image <- v
+            cleanPictureBox()
+            let f() = pictureBox1.Image <- v
+            pictureBox1 |> ensureInvoke f |> ignore<obj>
+
         let imControl = new CameraControl({Getter=(fun() -> pictureBox1.Image); Setter= setter})
         cc <- Some imControl
         imControl
 
     // this should not be changed if the camera is running
-    let cameraIndex = ProtectedValue(0, fun () -> imControl.CameraState = CameraState.Stopped && not imControl.IsRunning)
+    let cameraIndex = ProtectedValue(0, fun () -> imControl.CameraState.Value = CameraState.Stopped && not imControl.IsRunning)
 
     let qrControl = QRCode.QrManager()
 
     let generateDefaultPath () = System.String.Format(@"image-{0}.jpg", Guid.NewGuid())
     let controlTop = 491
 
-    let comboBox1 = new ComboBox(
+    let cameraIndexComboBox = new ComboBox(
         Location=new System.Drawing.Point(10, controlTop),
         Name="comboBox1",
         Size= new System.Drawing.Size(100,50),
@@ -248,21 +262,31 @@ type Form1() as this =
         Enabled=true
     )
 
-    let button1 = new Button(
-        Location = new System.Drawing.Point(comboBox1.Location.X + comboBox1.Size.Width + 15, controlTop),
-        Name = "button1",
+    let getRunText =
+        function
+        | CameraState.Stopped -> "Start"
+        | CameraState.Initializing -> nameof CameraState.Initializing
+        | CameraState.Started -> "Stop"
+
+    let setRunText cs (runButton:Button) =
+        let value = getRunText cs
+        setTextIfNot runButton value
+
+    let runButton = new Button(
+        Location = new System.Drawing.Point(cameraIndexComboBox.Location.X + cameraIndexComboBox.Size.Width + 15, controlTop),
+        Name = "runButton",
         Size = new System.Drawing.Size(144, 52),
         TabIndex = 1,
-        Text = "Initializing",
+        Text = (imControl.CameraState.Value |> getRunText),
         UseVisualStyleBackColor = true,
         Visible = true,
         Enabled = false
     )
 
-    let button2 = new Button(
+    let snapButton = new Button(
        Font = new System.Drawing.Font("Microsoft YaHei UI", 16.2f, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, 0uy),
-       Location = new System.Drawing.Point(button1.Location.X + button1.Size.Width + 15, controlTop),
-       Name = "button2",
+       Location = new System.Drawing.Point(runButton.Location.X + runButton.Size.Width + 15, controlTop),
+       Name = "snapButton",
        Size = new System.Drawing.Size(459, 86),
        TabIndex = 1,
        Text = "scan",
@@ -270,84 +294,115 @@ type Form1() as this =
        UseVisualStyleBackColor = true
     )
 
-    let button1Click _ _ =
-        match imControl.CameraState with
+    let runButtonClick _ _ =
+        match imControl.CameraState.Value with
         | Initializing -> ()
         | Stopped ->
-            imControl.CaptureCamera(cameraIndex.Value)
-            button1.Text <- "Stop"
-            button2.Text <- "scan"
+            imControl.CaptureCamera cameraIndex.Value
+
         | CameraState.Started ->
             imControl.StopCapture()
-            button1.Text <- "Start"
+            cleanPictureBox()
+        setRunText imControl.CameraState.Value runButton
 
-    let button2Click _ _ =
-        match imControl.CameraState with
+
+    let snapButtonClick _ _ =
+        match imControl.CameraState.Value with
         | Initializing -> ()
         | Stopped -> ()
         | Started ->
             imControl.TakeSnap()
             |> function
-                | Error msg -> System.Windows.Forms.MessageBox.Show(msg) |> ignore
+                | Error msg -> System.Windows.Forms.MessageBox.Show msg |> ignore
                 | Ok snapshot ->
                 //generateDefaultPath()
                 //|> snapshot.Save
-                qrControl.TryDecode(snapshot)
+                qrControl.TryDecode snapshot
                 |> Option.iter(fun qrResult ->
-                    System.Windows.Forms.MessageBox.Show(qrResult) |> ignore
+                    System.Windows.Forms.MessageBox.Show qrResult |> ignore
                     //button2.Text <- qrResult
                 )
+
     let comboBox1Change =
         // combo box may try to set its own value
         let mutable cbLatch = false
         fun _ _ ->
             if not cbLatch then
                 cbLatch <- true
-                match comboBox1.SelectedItem |> Option.ofObj |> Option.defaultWith(fun () -> comboBox1.Text) with
+                match cameraIndexComboBox.SelectedItem |> Option.ofObj |> Option.defaultWith(fun () -> cameraIndexComboBox.Text) with
                 | :? int as i -> Some i
                 | :? string as s -> s |> String.trim |> tryParseInt
                 | _ -> None
                 |> Option.teeNone(fun _ ->
-                        eprintfn "Could not read comboBox1 value: '%A'" comboBox1.SelectedValue
+                        eprintfn "Could not read comboBox1 value: '%A'" cameraIndexComboBox.SelectedValue
                 )
                 |> Option.bind(fun i -> cameraIndex.TrySetValue i |> Option.ofFalse)
                 |> Option.iter(fun _ ->
-                    eprintfn "Failed to set camera index: '%A' - '%A'" comboBox1.SelectedItem comboBox1.SelectedText
-                    if imControl.IsRunning || imControl.CameraState <> CameraState.Stopped then
+                    eprintfn "Failed to set camera index: '%A' - '%A'" cameraIndexComboBox.SelectedItem cameraIndexComboBox.SelectedText
+                    if imControl.IsRunning || imControl.CameraState.Value <> CameraState.Stopped then
                         // set the comboBox back to the value of the current camera index
-                        comboBox1.Items
+                        cameraIndexComboBox.Items
                         |> Seq.cast<int>
                         |> Seq.tryFindIndex(fun v -> v = cameraIndex.Value)
                         |> function
                             | Some i ->
                                 printfn "Setting combobox index to %i" i
-                                comboBox1.SelectedIndex <- i
+                                cleanPictureBox()
+                                cameraIndexComboBox.SelectedIndex <- i
                             | None ->
                                 printfn "Changing combobox text to %i" cameraIndex.Value
-                                comboBox1.SelectedValue <- cameraIndex.Value
+                                cameraIndexComboBox.SelectedValue <- cameraIndex.Value
                                 //comboBox1.SelectedText <- string cameraIndex.Value
                 )
                 cbLatch <- false
 
     let components : System.ComponentModel.IContainer = null
+    let mutable disposables : (string * System.IDisposable) list = List.empty
+    let addDisposable title x =
+        disposables <-
+            (title,x)
+            |> List.singleton
+            |> List.append disposables
 
     do
         this.InitializeComponent()
+
+        imControl.CameraState.Subscribe(fun value ->
+
+            let isStopped = value = CameraState.Stopped
+
+            let inline setRunButtonTextIfNot text = setTextIfNot runButton text
+
+            let inline setRunButtonEnabledIfNot enabled = setEnabledIfNot runButton enabled
+
+            let setSnapButtonIfNot enabled = setEnabledIfNot snapButton enabled
+
+            let setCameraIndexComboEnabled enabled = setEnabledIfNot cameraIndexComboBox enabled
+
+            //button1.Enabled <- imControl.CameraState.Value <> CameraState.Initializing
+            // disallow state changes attempts while initializing
+            setRunButtonEnabledIfNot (value <> CameraState.Initializing)
+
+            //button2.Enabled <- imControl.CameraState.Value = CameraState.Started
+            // disallow snaps while not running
+            setSnapButtonIfNot (value = CameraState.Started && imControl.IsRunning)
+            setCameraIndexComboEnabled (value = CameraState.Stopped)
+
+            match value with
+            | CameraState.Stopped -> "Start"
+            | CameraState.Initializing -> nameof CameraState.Initializing
+            | CameraState.Started -> "Stop"
+            |> setRunButtonTextIfNot
+
+        )
+        |> addDisposable "combobox camerastate"
+
         // there is a startup time to grabbing the camera and starting to display it on the screen
 
         // relies on capture camera invoking the setter above to kick off post-initializing work
-        onceInitialized <- Some <| fun _ ->
-            let updatebutton: OnAction =
-                OnAction(fun _ ->
-                    button1.Text <- "Stop"
-                    button1.Enabled <- imControl.CameraState <> CameraState.Initializing
-                    button2.Enabled <- imControl.CameraState = CameraState.Started
-                    )
-            button1.Invoke updatebutton |> ignore
         imControl.CaptureCamera(cameraIndex.Value)
 
-
-    override this.OnClosed e =
+    override _.OnClosed e =
         base.OnClosed e
         try
             imControl.Dispose()
@@ -357,10 +412,10 @@ type Form1() as this =
         this.SuspendLayout()
 
         // this.button1.Click += new System.EventHandler(this.button1_Click);
-        System.EventHandler button1Click |> button1.Click.AddHandler
+        System.EventHandler runButtonClick |> runButton.Click.AddHandler
         // this.button2.Click += new System.EventHandler(this.button2_Click);
-        System.EventHandler button2Click |> button2.Click.AddHandler
-        System.EventHandler comboBox1Change |> comboBox1.SelectedValueChanged.AddHandler
+        System.EventHandler snapButtonClick |> snapButton.Click.AddHandler
+        System.EventHandler comboBox1Change |> cameraIndexComboBox.SelectedValueChanged.AddHandler
 
         //
         // Form1
@@ -372,11 +427,11 @@ type Form1() as this =
 
         // TODO: detect available camera indexes
         [0..3]
-        |> Seq.iter (comboBox1.Items.Add>> ignore<int>)
+        |> Seq.iter (cameraIndexComboBox.Items.Add>> ignore<int>)
 
-        this.Controls.Add comboBox1
-        this.Controls.Add button2
-        this.Controls.Add button1
+        this.Controls.Add cameraIndexComboBox
+        this.Controls.Add snapButton
+        this.Controls.Add runButton
         this.Controls.Add pictureBox1
 
         this.Name <- "Form1"
@@ -391,6 +446,8 @@ type Form1() as this =
     override this.Dispose(disposing) =
             if disposing && not <| isNull components then
                 components.Dispose()
+            disposables
+            |> List.iter (uncurry tryDispose)
             base.Dispose disposing
 
     [<CLIEvent>]

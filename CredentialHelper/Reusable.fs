@@ -2,6 +2,8 @@
 
 open System
 
+type OnAction = delegate of unit -> unit
+
 type Property<'t> = {
     Getter: unit -> 't
     Setter: 't -> unit
@@ -136,6 +138,26 @@ let inline fromParser f x =
 
 let inline tryParseInt x = fromParser System.Int32.TryParse x
 
+let createDisposable (onDispose: unit -> unit) =
+    {new System.IDisposable with member x.Dispose() = onDispose()}
+
+let createObserver (onNext,onCompleted, onError): IObserver<'t> =
+    {
+        new System.IObserver<'t> with
+            member _.OnNext(value) =
+                match onNext with
+                | None -> ()
+                | Some f -> f value
+            member _.OnCompleted() =
+                match onCompleted with
+                | None -> ()
+                | Some f -> f ()
+            member _.OnError ex =
+                match onError with
+                | None -> ()
+                | Some f -> f ex
+    }
+
 let toDisposable (x: #System.IDisposable) =
     x :> System.IDisposable
 
@@ -150,3 +172,57 @@ let tryDispose title x =
             dispose x
         with _ ->
             eprintfn "Failed to dispose: '%s'" title
+
+type IObservableStore<'t> =
+    inherit IObservable<'t>
+    abstract member Value: 't
+
+// https://github.com/davedawkins/Sutil/blob/main/src/Sutil/ObservableStore.fs
+type ObservableStore<'t>(value: 't) =
+    let mutable value = value
+    let mutable uid = 0
+    let subscribers = System.Collections.Generic.Dictionary<_, IObserver<'t>>()
+
+    // should we check equality so we don't update for being sent the same value?
+    member _.Value
+        with get() = value
+        and set v =
+            value <- v
+            if subscribers.Count > 0 then
+                subscribers.Values
+                |> Seq.iter(fun s -> s.OnNext value)
+
+    member _.Subscribe observer : IDisposable =
+        let id = uid
+        uid <- uid + 1
+        subscribers.Add(id, observer)
+
+        createDisposable (fun () ->
+            subscribers.Remove id |> ignore<bool>
+        )
+
+    interface IObservableStore<'t> with
+        member x.Value = x.Value
+        member x.Subscribe observer = x.Subscribe observer
+
+module Controls =
+
+    let inline ensureInvoke (f: OnAction) x =
+        if (^t: (member InvokeRequired: bool)(x)) then
+            (^t: (member Invoke: OnAction -> obj)(x,f))
+        else f.Invoke()
+
+    let inline setInvokedIfNot control oldValue f x =
+        if oldValue <> x then
+            control |> ensureInvoke f |> ignore<obj>
+
+
+    let inline setTextIfNot control text =
+        let oldValue = (^t: (member Text: string)(control))
+        let inline f () = (^t: (member set_Text: string -> unit)(control,text))
+        setInvokedIfNot control oldValue f text
+
+    let inline setEnabledIfNot control enabled =
+        let oldValue = (^t: (member Enabled: bool)(control))
+        let inline f () = (^t: (member set_Enabled: bool -> unit)(control,enabled))
+        setInvokedIfNot control oldValue f enabled
