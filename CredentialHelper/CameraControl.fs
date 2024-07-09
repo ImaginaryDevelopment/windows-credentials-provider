@@ -273,8 +273,8 @@ type Form1() as this =
         setTextIfNot runButton value
 
     let runButton = new Button(
-        Location = new System.Drawing.Point(cameraIndexComboBox.Location.X + cameraIndexComboBox.Size.Width + 15, controlTop),
         Name = "runButton",
+        Location = new System.Drawing.Point(cameraIndexComboBox.Location.X + cameraIndexComboBox.Size.Width + 15, controlTop),
         Size = new System.Drawing.Size(144, 52),
         TabIndex = 1,
         Text = (imControl.CameraState.Value |> getRunText),
@@ -284,11 +284,11 @@ type Form1() as this =
     )
 
     let snapButton = new Button(
-       Font = new System.Drawing.Font("Microsoft YaHei UI", 16.2f, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, 0uy),
-       Location = new System.Drawing.Point(runButton.Location.X + runButton.Size.Width + 15, controlTop),
        Name = "snapButton",
-       Size = new System.Drawing.Size(459, 86),
-       TabIndex = 1,
+       Location = new System.Drawing.Point(runButton.Location.X + runButton.Size.Width + 15, controlTop),
+       Font = new System.Drawing.Font("Microsoft YaHei UI", 16.2f, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, 0uy),
+       Size = new System.Drawing.Size(259, 86),
+       TabIndex = 2,
        Text = "scan",
        Enabled = false,
        UseVisualStyleBackColor = true

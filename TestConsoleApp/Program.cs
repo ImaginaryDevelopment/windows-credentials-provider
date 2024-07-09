@@ -39,6 +39,9 @@
                 TryComInvoke();
 
 
+            } else if (runType.IsApiCall)
+            {
+                TryApiCall();
             } else
             {
                 Console.WriteLine("Run Type unimplemented:'{0}'", runType);
@@ -74,8 +77,15 @@
                     {
                         Console.Error.WriteLine(name + ": unknown - " + r);
                     }
+            }
+
                 }
 
+        static void TryApiCall()
+        {
+            var baseUrl = CredentialHelper.ApiClient.BaseUrl.TryCreate(System.Environment.GetEnvironmentVariable("devapi")).ResultValue;
+            var r = CredentialHelper.ApiClient.tryValidate(baseUrl, new CredentialHelper.ApiClient.AuthPost("1")).Result;
+            Console.WriteLine(r);
         }
 
         static TestWindowsCredentialProvider ValidateCP(object o)
