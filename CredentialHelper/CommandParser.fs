@@ -5,6 +5,7 @@ open Reusable
 type CommandType =
     | ComInvoke
     | ShowUI
+    | ApiCall
     | AttemptLogin
 
 let (|HasArg|_|) (arg:string) =
@@ -19,6 +20,8 @@ let getCommandType (args: string[]) =
     match args with
     | HasArg "-com" ->
         ComInvoke
+    | HasArg "-api" ->
+        ApiCall
     | HasArg "-ui" -> ShowUI
     | _ -> AttemptLogin
 
