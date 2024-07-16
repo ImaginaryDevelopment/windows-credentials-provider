@@ -87,13 +87,21 @@ module HttpWReq =
     let tryGetResultString (wReq:System.Net.HttpWebRequest) =
         task {
             try
-                use! wResp = wReq.GetResponseAsync()
+                printfn "Fetching response"
+                use! wResp = wReq.GetResponseAsync().ConfigureAwait(false)
+                printfn "casting response"
                 let wResp = wResp :?> System.Net.HttpWebResponse
+                printfn "getting response stream"
                 use rs = wResp.GetResponseStream()
+                printfn "Getting stream reader"
                 use sr = new System.IO.StreamReader(rs)
+                printfn "reading to end"
                 let! rj = sr.ReadToEndAsync()
+                printfn "returning value"
                 return Ok rj
-            with ex -> return Error ex
+            with ex ->
+                printfn "erroring out"
+                return Error ex
         }
 
 open HttpWReq
@@ -127,7 +135,14 @@ let tryValidate verifiedBase (value: AuthPost) =
             do! tw.WriteAsync value
             do! tw.FlushAsync()
 
-            return!  HttpWReq.tryGetResultString wReq
+            let! result = HttpWReq.tryGetResultString wReq
+            match result with
+            | Ok value ->
+                printfn "Got result:'%s'" value
+                return Ok value
+            | Error e ->
+                printfn "Result fetch failed"
+                return Error e
 
         with ex -> return Error ex
     }

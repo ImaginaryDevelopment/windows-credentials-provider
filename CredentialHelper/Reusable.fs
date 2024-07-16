@@ -3,6 +3,7 @@
 open System
 
 type OnAction = delegate of unit -> unit
+type OnAction<'t> = delegate of 't -> unit
 
 type Property<'t> = {
     Getter: unit -> 't
@@ -14,6 +15,16 @@ let failNullOrEmpty paramName x = if String.IsNullOrEmpty x then raise <| Argume
 let tee f x =
     f x
     x
+
+// prevent re-entrancy
+let createLatchedFunction f =
+    let mutable latch = false
+    fun () ->
+        if not latch then
+            latch <- true
+            f()
+            latch <- false
+
 
 module Option =
     let ofValueString =
@@ -226,3 +237,37 @@ module Controls =
         let oldValue = (^t: (member Enabled: bool)(control))
         let inline f () = (^t: (member set_Enabled: bool -> unit)(control,enabled))
         setInvokedIfNot control oldValue f enabled
+
+module Async =
+    open System.Runtime.CompilerServices
+    open System.Threading
+    open System.Threading.Tasks
+
+    let inline map f x =
+        async {
+            let! value = x
+            return f value
+        }
+
+    // https://stackoverflow.com/questions/28350329/how-to-await-taskawaiter-or-configuredtaskawaitable-in-f
+    let fromTaskAwaiter (awaiter: TaskAwaiter<'a>) =
+        async {
+            use handle = new SemaphoreSlim(0)
+            awaiter.OnCompleted(fun () -> ignore (handle.Release()))
+            let! _ = handle.AvailableWaitHandle |> Async.AwaitWaitHandle
+            return awaiter.GetResult()
+        }
+    let inline catchB t =
+        t
+        |> Async.Catch
+        |> map (function | Choice1Of2 v -> Ok v | Choice2Of2 e -> Error e)
+
+    let inline catchBind (t:Async<Result<'t,exn>>) =
+        t
+        |> catchB
+        |> map(
+            function
+            | Error e -> Error e
+            | Ok (Error e) -> Error e
+            | Ok (Ok v) -> Ok v
+        )

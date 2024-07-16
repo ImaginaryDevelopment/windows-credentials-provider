@@ -29,9 +29,15 @@
 
             } else if (runType.IsShowUI)
             {
-                using (var form1 = new CredentialHelper.CameraControl.Form1())
+                using (var form1 = new CredentialHelper.UI.Form1())
+                {
+                    if (form1.InvokeRequired)
+                    {
+                        form1.Invoke(new Action(() => form1.ShowDialog()));
+                    } else
                 {
                     form1.ShowDialog();
+                }
                 }
 
             } else if (runType.IsComInvoke)

@@ -23,7 +23,7 @@ namespace WindowsCredentialProviderTest
 
         // ui offers to make this a singleton lock
         readonly object _testUILock = new object();
-        CredentialHelper.CameraControl.Form1 _form1;
+        CredentialHelper.UI.Form1 _form1;
 
         // more recent example has this:
         bool IsUnlock { get; set; }
@@ -45,15 +45,15 @@ namespace WindowsCredentialProviderTest
 
         void InitUI()
         {
-            if (_form1 == null) { _form1 = new CredentialHelper.CameraControl.Form1(); }
-            _form1.OnCredentialSubmit += this._form1_OnCredentialSubmit;
+            if (_form1 == null) { _form1 = new CredentialHelper.UI.Form1(); }
+            //_form1.OnCredentialSubmit += this._form1_OnCredentialSubmit;
         }
 
-        void _form1_OnCredentialSubmit(NetworkCredential value)
-        {
-            _credential = new NetworkCredential(value.UserName, value.Password, value.Domain);
-            testWindowsCredentialProvider.CredentialProviderEvents?.CredentialsChanged(testWindowsCredentialProvider.AdviseContext);
-        }
+        //void _form1_OnCredentialSubmit(NetworkCredential value)
+        //{
+        //    _credential = new NetworkCredential(value.UserName, value.Password, value.Domain);
+        //    testWindowsCredentialProvider.CredentialProviderEvents?.CredentialsChanged(testWindowsCredentialProvider.AdviseContext);
+        //}
 
         public string GetLabel()
         {
