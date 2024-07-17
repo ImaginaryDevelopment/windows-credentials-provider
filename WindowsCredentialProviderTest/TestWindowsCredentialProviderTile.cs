@@ -1,4 +1,5 @@
 ﻿using CredentialProvider.Interop;
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -46,7 +47,26 @@ namespace WindowsCredentialProviderTest
         void InitUI()
         {
             if (_form1 == null) { _form1 = new CredentialHelper.UI.Form1(); }
+            _form1.FormClosed += this._form1_FormClosed;
             //_form1.OnCredentialSubmit += this._form1_OnCredentialSubmit;
+        }
+
+        void _form1_FormClosed(object sender, System.Windows.Forms.FormClosedEventArgs e)
+        {
+            Log.LogMethodCall();
+
+            if (_form1?.VerificationResult != null)
+            {
+                var vr = _form1.VerificationResult;
+                var isValuePwd = !String.IsNullOrWhiteSpace(vr.Password);
+                var valuePwdTxt = isValuePwd ? 'v' : 'n';
+                Log.LogText($"Got credential for user:{vr.Domain}\\{vr.Username}-{isValuePwd}");
+
+                this._credential = new NetworkCredential(_form1.VerificationResult.Username, _form1.VerificationResult.Password, _form1.VerificationResult.Domain);
+                this.testWindowsCredentialProvider.CredentialProviderEvents?.CredentialsChanged(this.testWindowsCredentialProvider.AdviseContext);
+
+            }
+            SetDeselected();
         }
 
         //void _form1_OnCredentialSubmit(NetworkCredential value)
@@ -127,7 +147,7 @@ namespace WindowsCredentialProviderTest
         public int SetSelected(out int pbAutoLogon)
         {
             Log.LogMethodCall();
-            if(this._credential != null)
+            if (this._credential != null)
             {
                 pbAutoLogon = 1;
                 return HResultValues.S_OK;
@@ -135,6 +155,24 @@ namespace WindowsCredentialProviderTest
             lock (_testUILock)
             {
                 InitUI();
+                try
+                {
+                    this._form1.Show();
+                    pbAutoLogon = 0;
+                    if (this._form1 == null)
+                    {
+                        return HResultValues.E_INVALIDARG;
+                    }
+                    return HResultValues.S_OK;
+                } catch (ObjectDisposedException)
+                {
+                    this._credential = null;
+                    this._form1 = null;
+                    InitUI();
+                    this._form1.Show();
+                    pbAutoLogon = 0;
+                    return HResultValues.S_OK;
+                }
 
             }
 
@@ -149,9 +187,9 @@ namespace WindowsCredentialProviderTest
 
             lock (_testUILock)
             {
-                if(_form1 != null)
+                if (_form1 != null)
                 {
-                    if(!_form1.IsDisposed)
+                    if (!_form1.IsDisposed)
                     {
 
                         try
@@ -167,8 +205,6 @@ namespace WindowsCredentialProviderTest
                 }
                 return HResultValues.S_OK;
             }
-
-            //return HResultValues.E_NOTIMPL;
         }
 
         public int GetFieldState(uint dwFieldID, out _CREDENTIAL_PROVIDER_FIELD_STATE pcpfs,
@@ -184,7 +220,7 @@ namespace WindowsCredentialProviderTest
         {
             Log.LogMethodCall();
 
-            var searchFunction = FieldSearchFunctionGenerator(dwFieldID, new []
+            var searchFunction = FieldSearchFunctionGenerator(dwFieldID, new[]
             {
                 _CREDENTIAL_PROVIDER_FIELD_TYPE.CPFT_SMALL_TEXT,
                 _CREDENTIAL_PROVIDER_FIELD_TYPE.CPFT_LARGE_TEXT,
@@ -249,7 +285,7 @@ namespace WindowsCredentialProviderTest
         {
             Log.LogMethodCall();
 
-            var searchFunction = FieldSearchFunctionGenerator(dwFieldID, new [] { _CREDENTIAL_PROVIDER_FIELD_TYPE.CPFT_SUBMIT_BUTTON });
+            var searchFunction = FieldSearchFunctionGenerator(dwFieldID, new[] { _CREDENTIAL_PROVIDER_FIELD_TYPE.CPFT_SUBMIT_BUTTON });
 
             if (!CredentialProviderFieldDescriptorList.Any(searchFunction))
             {
@@ -386,8 +422,7 @@ namespace WindowsCredentialProviderTest
                     pcpsiOptionalStatusIcon = _CREDENTIAL_PROVIDER_STATUS_ICON.CPSI_ERROR;
                     return HResultValues.E_FAIL;
                 }
-            }
-            catch (Exception)
+            } catch (Exception)
             {
                 // In case of any error, do not bring down winlogon
             }

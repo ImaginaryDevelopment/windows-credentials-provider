@@ -271,3 +271,12 @@ module Async =
             | Ok (Error e) -> Error e
             | Ok (Ok v) -> Ok v
         )
+
+module Cereal =
+    let deserialize<'t>(x:string) =
+        System.Text.Json.JsonSerializer.Deserialize<'t>(x)
+    let tryDeserialize<'t>(x: string) =
+        try
+            deserialize<'t>(x) |> Ok
+        with ex ->
+            Error(x,ex)

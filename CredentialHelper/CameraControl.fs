@@ -158,13 +158,19 @@ type CameraControl(imageProp: Property<Image>) =
                         while cameraState.Value <> Stopped do
                             if captureWrapper.Read frame then
                                 cameraState.Value <- Started
+                                // get the old image to dispose later
+                                // should we be using the local `image` field instead of a getter?
+                                let toDispose = imageProp.Getter()
+                                // store the image locally
                                 image <- BitmapConverter.ToBitmap frame
-                                imageProp.Getter()
+                                // set the image into the parent prop
+                                imageProp.Setter image
+                                // dispose the old image
+                                toDispose
                                 |> Option.ofObj
                                 |> Option.iter(fun image ->
                                     image.Dispose()
                                 )
-                                imageProp.Setter image
                             else
                                 eprintfn "Camera read failed: '%A'" cameraState.Value
                     else
@@ -190,10 +196,15 @@ type CameraControl(imageProp: Property<Image>) =
             match imageProp.Getter() with
             | null -> Error "image getter returned null"
             | image ->
+                printfn "Attempting to grab image"
                 try
                     let snapshot = new Bitmap(image)
+                    printfn "Bitmap made from image"
                     Ok snapshot
                 with
+                    | :? InvalidOperationException as ex ->
+                        // snapshot fail
+                        Error ex.Message
                     | :? ArgumentException as ex ->
                         Error ex.Message
 
@@ -237,7 +248,7 @@ type SnapshotResult =
     | NoQrCodeFound
     | ApiUrlError of string
     | ApiValidationFailed of string
-    | QRValidated of string
+    | QRValidated of Result<ApiClient.VerificationResult,string>
     with
         member this.TryGetError () =
             match this with
@@ -250,8 +261,8 @@ type SnapshotResult =
 
         member this.TryGetQRValidated() =
             match this with
-            | QRValidated value -> value
-            | _ -> null
+            | QRValidated value -> Some value
+            | _ -> None
 
 module UI =
 
@@ -261,17 +272,22 @@ module UI =
         add 1 2 |> ignore
 
     let mutable onceInitialized = None
+
     let cleanPictureBox (pb: PictureBox) =
         match pb.Image with
         | null -> ()
         | x ->
+
+            // clear the image from the picture box
+            let f () =
+                pb.Image <- null
+            pb |> ensureInvoke f |> ignore<obj>
+
+            // dispose the image
             try
                 x.Dispose()
             with ex ->
                 eprintfn "Failed to dispose image: '%s'" ex.Message
-            let f () =
-                pb.Image <- null
-            pb |> ensureInvoke f |> ignore<obj>
 
     let createCameraControl (pb:PictureBox) =
         let mutable cc : CameraControl option = None
@@ -320,7 +336,7 @@ module UI =
         let value = getRunText cs
         setTextIfNot runButton value
 
-    let onSnapRequest (imControl:CameraControl, qrControl:QRCode.QrManager) (uiHandle:IWin32Window) =
+    let onSnapRequest (imControl:CameraControl, qrControl:QRCode.QrManager) =
         //let showMsgBox (text:string) =
         //    System.Windows.Forms.MessageBox.Show(uiHandle,text) |> ignore
         //    //uiHandle |> ensureInvoke f |> ignore<obj>
@@ -351,7 +367,12 @@ module UI =
                             |> Async.RunSynchronously
                             |> function
                                 | Error e -> ApiValidationFailed e.Message
-                                | Ok v -> QRValidated v
+                                | Ok v ->
+                                    Cereal.tryDeserialize<ApiClient.VerificationResult> v
+                                    |> Result.mapError(fun (txt,ex) ->
+                                        $"{ex.Message}:'{txt}'"
+                                    )
+                                    |> fun x -> QRValidated x
                     )
                     |> Option.defaultValue NoQrCodeFound
 
@@ -409,184 +430,3 @@ module UI =
             |> setRunButtonTextIfNot
         )
 
-// TODO: when there is no camera available the ui does not indicate anything is wrong
-type Form2() as this =
-    inherit System.Windows.Forms.Form()
-
-    let onCredentialSubmitEvent = DelegateEvent<OnCredentialSubmitHandler>()
-    let onCancelEvent = DelegateEvent<OnAction>()
-    let onOkEvent = DelegateEvent<OnAction>()
-    //let onFormClosed = DelegateEvent<OnAction>()
-
-    let pictureBox1: PictureBox =
-        new PictureBox(
-            Location=System.Drawing.Point(22,13),
-            Name="pictureBox1",
-            Size=System.Drawing.Size(798,472),
-            TabIndex=0,
-            TabStop=false
-        )
-
-    let cleanPictureBox () =
-        UI.cleanPictureBox pictureBox1
-
-
-    let mutable onceInitialized = None
-    let imControl =
-        let mutable cc : CameraControl option = None
-        let setter v =
-            match cc with
-            | None -> eprintfn "Setter called without camera control"
-            | Some cc ->
-                if cc.CameraState.Value = CameraState.Started then
-                    onceInitialized
-                    |> Option.iter(fun f ->
-                        f()
-                    )
-            cleanPictureBox()
-            let f() = pictureBox1.Image <- v
-            pictureBox1 |> ensureInvoke f |> ignore<obj>
-
-        let imControl = new CameraControl({Getter=(fun() -> pictureBox1.Image); Setter= setter})
-        cc <- Some imControl
-        imControl
-
-    // this should not be changed if the camera is running
-    let cameraIndex = ProtectedValue(0, fun () -> imControl.CameraState.Value = CameraState.Stopped && not imControl.IsRunning)
-
-    let qrControl = QRCode.QrManager()
-
-    let generateDefaultPath () = System.String.Format(@"image-{0}.jpg", Guid.NewGuid())
-    let controlTop = 491
-
-    let cameraIndexComboBox = new ComboBox(
-        Location=new System.Drawing.Point(10, controlTop),
-        Name="comboBox1",
-        Size= new System.Drawing.Size(100,50),
-        TabIndex=1,
-        Visible=true,
-        Enabled=true
-    )
-
-    let setRunText cs (runButton:Button) =
-        let value = UI.getRunText cs
-        setTextIfNot runButton value
-
-    let runButton = new Button(
-        Name = "runButton",
-        Location = new System.Drawing.Point(cameraIndexComboBox.Location.X + cameraIndexComboBox.Size.Width + 15, controlTop),
-        Size = new System.Drawing.Size(144, 52),
-        TabIndex = 1,
-        Text = (imControl.CameraState.Value |> UI.getRunText),
-        UseVisualStyleBackColor = true,
-        Visible = true,
-        Enabled = false
-    )
-
-    let snapButton = new Button(
-       Name = "snapButton",
-       Location = new System.Drawing.Point(runButton.Location.X + runButton.Size.Width + 15, controlTop),
-       Font = new System.Drawing.Font("Microsoft YaHei UI", 16.2f, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, 0uy),
-       Size = new System.Drawing.Size(259, 86),
-       TabIndex = 2,
-       Text = "scan",
-       Enabled = false,
-       UseVisualStyleBackColor = true
-    )
-
-    let runButtonClick _ _ =
-        UI.onRunRequest(imControl, cameraIndex, pictureBox1)
-        setRunText imControl.CameraState.Value runButton
-
-
-    // would benefit from being task/async for ui
-    let snapButtonClick _ _ =
-        // HACK: ignoring results
-        UI.onSnapRequest(imControl, qrControl) runButton |> ignore
-
-    let comboBox1Change =
-        // combo box may try to set its own value
-        let mutable cbLatch = false
-        fun _ _ ->
-            if not cbLatch then
-                cbLatch <- true
-                UI.onCameraIndexChangeRequest(cameraIndexComboBox, cameraIndex, imControl, pictureBox1)
-                cbLatch <- false
-
-
-
-    let components : System.ComponentModel.IContainer = null
-    let mutable disposables : (string * System.IDisposable) list = List.empty
-    let addDisposable title x =
-        disposables <-
-            (title,x)
-            |> List.singleton
-            |> List.append disposables
-
-    do
-        this.InitializeComponent()
-
-        UI.hookUpCameraStateChanges (imControl,runButton,snapButton,cameraIndexComboBox)
-        |> addDisposable "combobox camerastate"
-
-        // there is a startup time to grabbing the camera and starting to display it on the screen
-
-        // relies on capture camera invoking the setter above to kick off post-initializing work
-        imControl.CaptureCamera(cameraIndex.Value)
-
-    override _.OnClosed e =
-        base.OnClosed e
-        try
-            imControl.Dispose()
-        with _ -> ()
-
-    member private this.InitializeComponent() =
-        this.SuspendLayout()
-
-        // this.button1.Click += new System.EventHandler(this.button1_Click);
-        System.EventHandler runButtonClick |> runButton.Click.AddHandler
-        // this.button2.Click += new System.EventHandler(this.button2_Click);
-        System.EventHandler snapButtonClick |> snapButton.Click.AddHandler
-        System.EventHandler comboBox1Change |> cameraIndexComboBox.SelectedValueChanged.AddHandler
-
-        //
-        // Form1
-        //
-
-        this.AutoScaleDimensions <- new System.Drawing.SizeF(8f, 16f)
-        this.AutoScaleMode <- AutoScaleMode.Font
-        this.ClientSize <- System.Drawing.Size(832,585)
-
-        // TODO: detect available camera indexes
-        [0..3]
-        |> Seq.iter (cameraIndexComboBox.Items.Add>> ignore<int>)
-
-        this.Controls.Add cameraIndexComboBox
-        this.Controls.Add snapButton
-        this.Controls.Add runButton
-        this.Controls.Add pictureBox1
-
-        this.Name <- "Form1"
-        this.Text <- "Take Snapshot"
-
-        // this.Load += new System.EventHandler(this.Form1_Load_1);
-        //this.Load.Add |> ignore
-
-        (pictureBox1 :> System.ComponentModel.ISupportInitialize).EndInit()
-        this.ResumeLayout(false)
-
-    override this.Dispose(disposing) =
-            if disposing && not <| isNull components then
-                components.Dispose()
-            disposables
-            |> List.iter (uncurry tryDispose)
-            base.Dispose disposing
-
-    [<CLIEvent>]
-    member _.OnCredentialSubmit = onCredentialSubmitEvent.Publish
-    [<CLIEvent>]
-    member _.OnCancelEvent = onCancelEvent.Publish
-    [<CLIEvent>]
-    member _.OnOkEvent = onOkEvent.Publish
-    //[<CLIEvent>]
-    //member _.OnFormClosed = onFormClosed.Publish
