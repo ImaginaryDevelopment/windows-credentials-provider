@@ -52,7 +52,7 @@ namespace CredentialHelper.UI
 
             // relies on capture camera invoking the setter above to kick off post-initializing work
             imControl.CaptureCamera(cameraIndex.Value);
-            this.Text = this.Text + "(" + CredentialHelper.UI.BuildInfo.Built.ToString() + ")";
+            this.Text = this.Text + "(" + PartialGen.Built.ToString() + ")";
 
         }
 
