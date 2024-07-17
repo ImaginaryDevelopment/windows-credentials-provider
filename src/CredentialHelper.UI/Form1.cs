@@ -52,6 +52,8 @@ namespace CredentialHelper.UI
 
             // relies on capture camera invoking the setter above to kick off post-initializing work
             imControl.CaptureCamera(cameraIndex.Value);
+            this.Text = this.Text + "(" + CredentialHelper.UI.BuildInfo.Built.ToString() + ")";
+
         }
 
         public void CleanPictureBox()
@@ -70,43 +72,60 @@ namespace CredentialHelper.UI
             onCameraIndexChange();
         }
 
+        void OnVerified(ApiClient.VerificationResult creds)
+        {
+            this.VerificationResult = creds;
+            ShowMsgBox("Success", _ => this.Close());
+            this.Close();
+        }
+
+        async Task VerifyQrCode(string qrCode)
+        {
+            var verifyResult = await Task.Run(() => CameraControl.UI.verifyQrCode(qrCode));
+            if (verifyResult.ResultValue is { } creds)
+            {
+                OnVerified(creds);
+            }
+        }
+
+        void ShowMsgBox(string msg, Action<DialogResult>? addlSmartInvokingAfter = null)
+            => this.SmartInvoke(_ =>
+            {
+                var mbResult = MessageBox.Show(msg);
+                addlSmartInvokingAfter?.Invoke(mbResult);
+            });
+
         async void snapButton_Click(object sender, EventArgs e)
         {
-            void ShowMsgBox(string msg)
-                => this.SmartInvoke(_ => MessageBox.Show(msg));
-
             try
             {
                 //this.pictureBox2.Image = this.pictureBox1.Image;
                 // trying to stop the ui from freezing while it processes
-                var result = await Task.Run(() => CameraControl.UI.onSnapRequest(imControl, qrControl));
-                if (result.TryGetQRValidated()?.Value is { } qrResult)
+                var rBm = await Task.Run(() => CameraControl.UI.onSnapRequest(imControl));
+                if (rBm.IsOk && rBm.tryGetValue()?.Value is { } bm)
                 {
-                    if (qrResult.IsOk && qrResult.ResultValue is { } value)
+                    var r2 = qrControl.TryDecode(bm);
+                    if (r2 != null && r2?.Value is { } qrValue && qrValue.IsValueString())
                     {
-                        this.VerificationResult = value;
-                        //ShowMsgBox("Success");
-                        this.Close();
+                        txtQrValue.Text = qrValue;
+                        await VerifyQrCode(qrValue);
                     } else
                     {
-                        ShowMsgBox(qrResult.ErrorValue);
+                        // no qr code found in image, ignore
+                        return;
                     }
-                } else if (result.IsNoQrCodeFound)
-                {
-                    ShowMsgBox("No QR Code found");
-                } else if (result.IsInvalidCameraState)
-                {
-                    this.SmartInvoke(_ => MessageBox.Show("Camera state invalid"));
-                } else if (result.TryGetError() is { } eMsg && eMsg?.Length > 0)
-                {
-                    ShowMsgBox(eMsg);
-                } else
-                {
-                    ShowMsgBox("How did we get here?");
                 }
             } catch (Exception ex)
             {
                 Console.Error.WriteLine(ex.ToString());
+            }
+        }
+
+        async void btnLogin_Click(object sender, EventArgs e)
+        {
+            if (this.txtQrValue.Text.IsValueString())
+            {
+                await VerifyQrCode(this.txtQrValue.Text);
             }
         }
 

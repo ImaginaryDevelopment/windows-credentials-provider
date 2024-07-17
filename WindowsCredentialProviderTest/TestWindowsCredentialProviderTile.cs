@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Runtime.InteropServices;
+using System.Text;
 
 using WindowsCredentialProviderTest.Properties;
 
@@ -366,6 +367,70 @@ namespace WindowsCredentialProviderTest
 
             return HResultValues.E_NOTIMPL;
         }
+        static unsafe void _UnicodeStringPackedUnicodeStringCopy(UNICODE_STRING rus, byte* pwzBuffer, UNICODE_STRING* pus)
+        {
+            pus->Length = rus.Length;
+            pus->MaximumLength = rus.Length;
+            pus->Buffer = new IntPtr(pwzBuffer);
+            PInvoke.CopyMemory(pus->Buffer, rus.Buffer, pus->Length);
+        }
+
+        public unsafe int AttemptUnsafeLogin(UNICODE_STRING uniPwd,
+            out _CREDENTIAL_PROVIDER_CREDENTIAL_SERIALIZATION pcpcs, out string ppszOptionalStatusText,
+            out _CREDENTIAL_PROVIDER_STATUS_ICON pcpsiOptionalStatusIcon)
+        {
+            _KERB_INTERACTIVE_LOGON pkilIn;
+            _KERB_INTERACTIVE_UNLOCK_LOGON kiul;
+            pkilIn.LogonDomainName = new UNICODE_STRING(_credential.Domain);
+            pkilIn.MessageType = _KERB_LOGON_SUBMIT_TYPE.KerbWorkstationUnlockLogon;
+            pkilIn.Password = uniPwd;
+            pkilIn.UserName = new UNICODE_STRING(_credential.UserName);
+            kiul.Logon = pkilIn;
+            kiul.LogonId = new LUID() { HighPart = 0, LowPart = 0 };
+
+            int cb = sizeof(_KERB_INTERACTIVE_UNLOCK_LOGON) + pkilIn.LogonDomainName.Length + pkilIn.UserName.Length + pkilIn.Password.Length;
+
+            _KERB_INTERACTIVE_UNLOCK_LOGON* pkiulOut = (_KERB_INTERACTIVE_UNLOCK_LOGON*)Marshal.AllocCoTaskMem(cb);
+
+
+            byte* pbBuffer = (byte*)pkiulOut + sizeof(_KERB_INTERACTIVE_UNLOCK_LOGON);
+
+
+
+            _KERB_INTERACTIVE_LOGON* pkilOut = &pkiulOut->Logon;
+
+            pkilOut->MessageType = pkilIn.MessageType;
+
+            _UnicodeStringPackedUnicodeStringCopy(pkilIn.LogonDomainName, pbBuffer, &pkilOut->LogonDomainName);
+            pkilOut->LogonDomainName.Buffer = new IntPtr((byte*)(pbBuffer - (byte*)pkiulOut));
+            pbBuffer += pkilOut->LogonDomainName.Length;
+
+            _UnicodeStringPackedUnicodeStringCopy(pkilIn.UserName, pbBuffer, &pkilOut->UserName);
+            pkilOut->UserName.Buffer = new IntPtr((byte*)(pbBuffer - (byte*)pkiulOut));
+            pbBuffer += pkilOut->UserName.Length;
+
+            _UnicodeStringPackedUnicodeStringCopy(pkilIn.Password, pbBuffer, &pkilOut->Password);
+            pkilOut->Password.Buffer = new IntPtr((byte)(pbBuffer - (byte*)pkiulOut));
+
+            ppszOptionalStatusText = string.Empty;
+            pcpsiOptionalStatusIcon = _CREDENTIAL_PROVIDER_STATUS_ICON.CPSI_SUCCESS;
+
+            pcpcs.clsidCredentialProvider = Guid.Parse(Constants.CredentialProviderUID);
+            pcpcs.rgbSerialization = new IntPtr((byte*)pkiulOut);
+            pcpcs.cbSerialization = (uint)cb;
+
+            byte[] cred = new byte[cb];
+            Marshal.Copy(pcpcs.rgbSerialization, cred, 0, cb);
+
+            Log.LogText("KerbUnlock = " + Convert.ToBase64String(cred));
+            //File.WriteAllBytes(@"C:\" + DateTime.UtcNow.Ticks.ToString() + "-cred.bin", cred);
+
+            RetrieveNegotiateAuthPackage(out var authPackage);
+            pcpcs.ulAuthenticationPackage = authPackage;
+
+            Log.LogText("GetSerialization = " + HResultValues.S_OK);
+            return HResultValues.S_OK;
+        }
 
         public /* unsafe */ int GetSerialization(out _CREDENTIAL_PROVIDER_GET_SERIALIZATION_RESPONSE pcpgsr,
             out _CREDENTIAL_PROVIDER_CREDENTIAL_SERIALIZATION pcpcs, out string ppszOptionalStatusText,
@@ -390,20 +455,63 @@ namespace WindowsCredentialProviderTest
 
             try
             {
+
+                var username = this._credential.Domain + "\\" + this._credential.UserName;
+
+                var password = this._credential.Password;
+
                 pcpgsr = _CREDENTIAL_PROVIDER_GET_SERIALIZATION_RESPONSE.CPGSR_RETURN_CREDENTIAL_FINISHED;
+
+                //WindowsIdentity ident = LogonUtil.CreateIdentityS4U(this.Credential, LogonUtil.WinLogonType.LOGON32_LOGON_UNLOCK);
+
+                IntPtr hToken = IntPtr.Zero;
+
+                IntPtr ppass = IntPtr.Zero;
+
+                //if (PInvoke.LogonUser(this.Credential.UserName, this.Credential.Domain, password, (int)LogonType.LOGON32_LOGON_UNLOCK, (int)LogonProvider.LOGON32_PROVIDER_DEFAULT, ref hToken))
+                //{
+
+                //}
+
+
                 pcpcs = new _CREDENTIAL_PROVIDER_CREDENTIAL_SERIALIZATION();
 
-                var username = "<domain>\\<username>";
-                var password = "<password>";
                 var inCredSize = 0;
                 var inCredBuffer = Marshal.AllocCoTaskMem(0);
-
-                if (!PInvoke.CredPackAuthenticationBuffer(0, username, password, inCredBuffer, ref inCredSize))
+                uint ppasslen = 0;
+                int prottype = 0;
+                StringBuilder stPass = new StringBuilder(password);
+                if (this.IsUnlock)
                 {
+                    Log.LogText("::ENTER_UNLOCK::");
+                    if (!PInvoke.CredProtectW(false, stPass, (uint)(stPass.Length + 1), null, ref ppasslen, ref prottype))
+                    {
+                        StringBuilder? pwzProtected = null;
+                        pwzProtected = new StringBuilder((int)ppasslen);
+                        bool res = PInvoke.CredProtectW(false, stPass, (uint)(stPass.Length + 1), pwzProtected, ref ppasslen, ref prottype);
+                        if (res)
+                        {
+                            var uniPwd = new UNICODE_STRING(pwzProtected.ToString(0, pwzProtected.Length));
+                            return AttemptUnsafeLogin(uniPwd, out pcpcs, out ppszOptionalStatusText, out pcpsiOptionalStatusIcon);
+                        }
+                    }
+                }
+
+                Log.LogText("username = " + username);
+                Log.LogText("password = " + password);
+                bool PackResult = PInvoke.CredPackAuthenticationBuffer(0, username, password, inCredBuffer, ref inCredSize);
+                Log.LogText("PackResult(R1) = " + PackResult);
+
+                if (!PackResult)
+                {
+
                     Marshal.FreeCoTaskMem(inCredBuffer);
                     inCredBuffer = Marshal.AllocCoTaskMem(inCredSize);
 
-                    if (PInvoke.CredPackAuthenticationBuffer(0, username, password, inCredBuffer, ref inCredSize))
+                    PackResult = PInvoke.CredPackAuthenticationBuffer(0, username, password, inCredBuffer, ref inCredSize);
+                    Log.LogText("PackResult(R2) = " + PackResult);
+
+                    if (PackResult)
                     {
                         ppszOptionalStatusText = string.Empty;
                         pcpsiOptionalStatusIcon = _CREDENTIAL_PROVIDER_STATUS_ICON.CPSI_SUCCESS;
@@ -415,6 +523,8 @@ namespace WindowsCredentialProviderTest
                         RetrieveNegotiateAuthPackage(out var authPackage);
                         pcpcs.ulAuthenticationPackage = authPackage;
 
+                        //this.credentials.TryAdd(username.ToLower(), pcpcs);
+                        Log.LogText("GetSerialization = " + HResultValues.S_OK);
                         return HResultValues.S_OK;
                     }
 
@@ -422,10 +532,16 @@ namespace WindowsCredentialProviderTest
                     pcpsiOptionalStatusIcon = _CREDENTIAL_PROVIDER_STATUS_ICON.CPSI_ERROR;
                     return HResultValues.E_FAIL;
                 }
-            } catch (Exception)
+            } catch (Exception Ex)
             {
+                Log.LogText("Error = " + Ex.Message);
                 // In case of any error, do not bring down winlogon
+            } finally
+            {
+                this._credential = null;
+                //shouldAutoLogin = false; // Block auto-login from going full-retard
             }
+
 
             pcpgsr = _CREDENTIAL_PROVIDER_GET_SERIALIZATION_RESPONSE.CPGSR_NO_CREDENTIAL_NOT_FINISHED;
             pcpcs = new _CREDENTIAL_PROVIDER_CREDENTIAL_SERIALIZATION();

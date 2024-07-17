@@ -19,6 +19,8 @@
             this.cameraIndexComboBox = new System.Windows.Forms.ComboBox();
             this.runButton = new System.Windows.Forms.Button();
             this.snapButton = new System.Windows.Forms.Button();
+            this.txtQrValue = new System.Windows.Forms.TextBox();
+            this.btnLogin = new System.Windows.Forms.Button();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).BeginInit();
             this.SuspendLayout();
             // 
@@ -27,7 +29,7 @@
             this.pictureBox1.Dock = System.Windows.Forms.DockStyle.Fill;
             this.pictureBox1.Location = new System.Drawing.Point(0, 0);
             this.pictureBox1.Name = "pictureBox1";
-            this.pictureBox1.Size = new System.Drawing.Size(401, 470);
+            this.pictureBox1.Size = new System.Drawing.Size(862, 546);
             this.pictureBox1.TabIndex = 0;
             this.pictureBox1.TabStop = false;
             // 
@@ -61,11 +63,31 @@
             this.snapButton.UseVisualStyleBackColor = true;
             this.snapButton.Click += new System.EventHandler(this.snapButton_Click);
             // 
+            // txtQrValue
+            // 
+            this.txtQrValue.Location = new System.Drawing.Point(311, 491);
+            this.txtQrValue.Name = "txtQrValue";
+            this.txtQrValue.Size = new System.Drawing.Size(100, 20);
+            this.txtQrValue.TabIndex = 4;
+            this.txtQrValue.Text = "320016909";
+            // 
+            // btnLogin
+            // 
+            this.btnLogin.Location = new System.Drawing.Point(417, 489);
+            this.btnLogin.Name = "btnLogin";
+            this.btnLogin.Size = new System.Drawing.Size(75, 23);
+            this.btnLogin.TabIndex = 5;
+            this.btnLogin.Text = "Login";
+            this.btnLogin.UseVisualStyleBackColor = true;
+            this.btnLogin.Click += new System.EventHandler(this.btnLogin_Click);
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(862, 546);
+            this.Controls.Add(this.btnLogin);
+            this.Controls.Add(this.txtQrValue);
             this.Controls.Add(this.snapButton);
             this.Controls.Add(this.runButton);
             this.Controls.Add(this.cameraIndexComboBox);
@@ -74,6 +96,7 @@
             this.Text = "Form1";
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).EndInit();
             this.ResumeLayout(false);
+            this.PerformLayout();
 
         }
 
@@ -83,5 +106,7 @@
         private System.Windows.Forms.ComboBox cameraIndexComboBox;
         private System.Windows.Forms.Button runButton;
         private System.Windows.Forms.Button snapButton;
+        private System.Windows.Forms.TextBox txtQrValue;
+        private System.Windows.Forms.Button btnLogin;
     }
 }
