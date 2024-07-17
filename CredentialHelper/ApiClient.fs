@@ -6,6 +6,12 @@ open type System.String
 
 let private encode x = System.Net.WebUtility.UrlEncode(x)
 
+type VerificationResult = {
+    Username: string
+    Password: string
+    Domain: string
+}
+
 type BaseUrl = private | VerifiedBase of string
 with
     static member TryCreate value =
@@ -134,8 +140,9 @@ let tryValidate verifiedBase (value: AuthPost) =
 
             do! tw.WriteAsync value
             do! tw.FlushAsync()
-
+            printfn "post flushed"
             let! result = HttpWReq.tryGetResultString wReq
+            printfn "Got result string"
             match result with
             | Ok value ->
                 printfn "Got result:'%s'" value

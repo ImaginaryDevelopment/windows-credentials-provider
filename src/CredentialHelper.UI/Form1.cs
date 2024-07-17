@@ -25,6 +25,8 @@ namespace CredentialHelper.UI
 
         readonly List<(string, IDisposable)> disposables = new List<(string, IDisposable)>();
 
+        public ApiClient.VerificationResult? VerificationResult { get; set; }
+
         public Form1()
         {
             InitializeComponent();
@@ -68,21 +70,40 @@ namespace CredentialHelper.UI
             onCameraIndexChange();
         }
 
-        void snapButton_Click(object sender, EventArgs e)
+        async void snapButton_Click(object sender, EventArgs e)
         {
+            void ShowMsgBox(string msg)
+                => this.SmartInvoke(_ => MessageBox.Show(msg));
+
             try
             {
                 //this.pictureBox2.Image = this.pictureBox1.Image;
-                var result = CameraControl.UI.onSnapRequest(imControl, qrControl, this);
-                if (result.IsNoQrCodeFound)
+                // trying to stop the ui from freezing while it processes
+                var result = await Task.Run(() => CameraControl.UI.onSnapRequest(imControl, qrControl));
+                if (result.TryGetQRValidated()?.Value is { } qrResult)
                 {
-
+                    if (qrResult.IsOk && qrResult.ResultValue is { } value)
+                    {
+                        this.VerificationResult = value;
+                        //ShowMsgBox("Success");
+                        this.Close();
+                    } else
+                    {
+                        ShowMsgBox(qrResult.ErrorValue);
+                    }
+                } else if (result.IsNoQrCodeFound)
+                {
+                    ShowMsgBox("No QR Code found");
                 } else if (result.IsInvalidCameraState)
                 {
                     this.SmartInvoke(_ => MessageBox.Show("Camera state invalid"));
+                } else if (result.TryGetError() is { } eMsg && eMsg?.Length > 0)
+                {
+                    ShowMsgBox(eMsg);
+                } else
+                {
+                    ShowMsgBox("How did we get here?");
                 }
-                Console.WriteLine(result);
-
             } catch (Exception ex)
             {
                 Console.Error.WriteLine(ex.ToString());
