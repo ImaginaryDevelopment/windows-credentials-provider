@@ -25,7 +25,6 @@ let createLatchedFunction f =
             f()
             latch <- false
 
-
 module Option =
     let ofValueString =
         function
@@ -48,7 +47,6 @@ module Option =
         function
         | None -> f(); None
         | Some x -> Some x
-
 
 let (|ValueString|WhiteSpace|NonValueString|) =
     function
@@ -280,3 +278,46 @@ module Cereal =
             deserialize<'t>(x) |> Ok
         with ex ->
             Error(x,ex)
+
+let tryInvokes functions =
+    functions
+    |> List.choose(fun f ->
+        try
+            f() |> Some
+        with _ -> None
+    )
+    |> List.tryHead
+
+type ReflectionInfo = {
+    AssemblyName: string
+    Location: string
+    Version: string
+}
+
+// https://stackoverflow.com/questions/52797/how-do-i-get-the-path-of-the-assembly-the-code-is-in
+let tryGetLocation(asm:System.Reflection.Assembly) =
+    [
+    // framework only
+        fun () -> Uri(asm.CodeBase).LocalPath
+        fun () -> asm.CodeBase
+        fun () -> asm.Location
+    ]
+    |> tryInvokes
+    |> Option.defaultValue null
+
+
+let getReflectInfo(asm:System.Reflection.Assembly) =
+    asm.GetCustomAttributes(typeof<System.Reflection.AssemblyVersionAttribute>, false)
+    |> Option.ofObj
+    |> Option.defaultValue Array.empty
+    |> List.ofArray
+    |> function
+        | [] -> None
+        | (:? System.Reflection.AssemblyVersionAttribute as ava)::_ -> 
+            Some {
+                AssemblyName=asm.FullName
+                Version=ava.Version
+                Location= tryGetLocation asm
+                }
+        | _ -> None
+

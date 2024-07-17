@@ -22,5 +22,7 @@ namespace CredentialHelper.UI
                     return;
             }
         }
+        public static bool IsValueString(this string  value) =>
+            !string.IsNullOrWhiteSpace(value);
     }
 }
