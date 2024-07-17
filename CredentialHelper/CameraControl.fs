@@ -242,26 +242,37 @@ type CameraControl(imageProp: Property<Image>) =
     interface IDisposable with
         member x.Dispose() = x.Dispose()
 
-type SnapshotResult =
-    | InvalidCameraState
-    | SnapError of string
-    | NoQrCodeFound
+type QrResult =
+    | QrNotFound
+    | QrCodeFound of string
+
+type ApiResult =
     | ApiUrlError of string
     | ApiValidationFailed of string
     | QRValidated of Result<ApiClient.VerificationResult,string>
     with
         member this.TryGetError () =
             match this with
-            | SnapError v -> v
             | ApiUrlError v -> v
             | ApiValidationFailed v -> v
+            | QRValidated _ -> null
+
+type SnapshotResult =
+    | InvalidCameraState
+    | SnapError of string
+    | NoQrCodeFound
+    | ApiValue of ApiResult
+    with
+        member this.TryGetError () =
+            match this with
+            | SnapError v -> v
             | InvalidCameraState -> nameof InvalidCameraState
-            | QRValidated _
+            | ApiValue x -> x.TryGetError()
             | NoQrCodeFound -> null
 
         member this.TryGetQRValidated() =
             match this with
-            | QRValidated value -> Some value
+            | ApiValue(QRValidated value) -> Some value
             | _ -> None
 
 module UI =
@@ -336,6 +347,29 @@ module UI =
         let value = getRunText cs
         setTextIfNot runButton value
 
+    let verifyQrCode qrResult =
+        let url = System.Environment.GetEnvironmentVariable "devapi"
+        match ApiClient.BaseUrl.TryCreate url with
+        | Error e ->
+            ApiUrlError $"{qrResult}:'%%devapi%%':'{url}':{e}"
+        | Ok baseUrl ->
+            //printfn "About to show msg box"
+            //showMsgBox qrResult
+            //printfn "Yay we made it"
+            let t = ApiClient.tryValidate baseUrl { Code = qrResult}
+            t
+            |> Async.AwaitTask
+            |> Async.catchBind
+            |> Async.RunSynchronously
+            |> function
+                | Error e -> ApiValidationFailed e.Message
+                | Ok v ->
+                    Cereal.tryDeserialize<ApiClient.VerificationResult> v
+                    |> Result.mapError(fun (txt,ex) ->
+                        $"{ex.Message}:'{txt}'"
+                    )
+                    |> fun x -> QRValidated x
+
     let onSnapRequest (imControl:CameraControl, qrControl:QRCode.QrManager) =
         //let showMsgBox (text:string) =
         //    System.Windows.Forms.MessageBox.Show(uiHandle,text) |> ignore
@@ -351,29 +385,7 @@ module UI =
                 | Error msg -> SnapError msg
                 | Ok snapshot ->
                     qrControl.TryDecode snapshot
-                    |> Option.map(fun qrResult ->
-                        let url = System.Environment.GetEnvironmentVariable "devapi"
-                        match ApiClient.BaseUrl.TryCreate url with
-                        | Error e ->
-                            ApiUrlError $"{qrResult}:'%%devapi%%':'{url}':{e}"
-                        | Ok baseUrl ->
-                            //printfn "About to show msg box"
-                            //showMsgBox qrResult
-                            //printfn "Yay we made it"
-                            let t = ApiClient.tryValidate baseUrl { Code = qrResult}
-                            t
-                            |> Async.AwaitTask
-                            |> Async.catchBind
-                            |> Async.RunSynchronously
-                            |> function
-                                | Error e -> ApiValidationFailed e.Message
-                                | Ok v ->
-                                    Cereal.tryDeserialize<ApiClient.VerificationResult> v
-                                    |> Result.mapError(fun (txt,ex) ->
-                                        $"{ex.Message}:'{txt}'"
-                                    )
-                                    |> fun x -> QRValidated x
-                    )
+                    |> Option.map (verifyQrCode>>SnapshotResult.ApiValue)
                     |> Option.defaultValue NoQrCodeFound
 
     let onCameraIndexChangeRequest (cameraIndexComboBox: ComboBox, cameraIndex: ProtectedValue<int>, imControl:CameraControl, pb) =
