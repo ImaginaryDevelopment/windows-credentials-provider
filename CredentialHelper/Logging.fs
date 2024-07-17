@@ -158,6 +158,7 @@ let asmOpt = lazy(
 type AsmFileLocationType =
     | Codebase
     | Location
+
 let prefixes =
     [
         Codebase, fun (asm:System.Reflection.Assembly) -> asm.CodeBase

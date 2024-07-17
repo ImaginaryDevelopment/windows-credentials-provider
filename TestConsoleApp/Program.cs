@@ -11,6 +11,7 @@
             // arg[0] is our app name, right?
             var runType = CredentialHelper.CommandParser.CommandType.AttemptLogin; // CredentialHelper.CommandParser.getCommandType(Environment.GetCommandLineArgs());
             Console.WriteLine(runType);
+            Log.LogText("(" + CredentialHelper.UI.PartialGen.Built.ToString("yyyyMMdd") + "): Running as :" + runType.ToString());
             if (runType.IsAttemptLogin)
             {
                 var networkCredential = CredentialsDialog.GetCredentials("Hey!", "We would like a login.");
@@ -89,6 +90,7 @@
 
         static void TryApiCall()
         {
+            Log.LogMethodCall();
             var baseUrl = CredentialHelper.ApiClient.BaseUrl.TryCreate(System.Environment.GetEnvironmentVariable("devapi")).ResultValue;
             var r = CredentialHelper.ApiClient.tryValidate(baseUrl, new CredentialHelper.ApiClient.AuthPost("1")).Result;
             Console.WriteLine(r);
@@ -96,6 +98,8 @@
 
         static TestWindowsCredentialProvider ValidateCP(object o)
         {
+            Log.LogMethodCall();
+
             if (o is WindowsCredentialProviderTest.TestWindowsCredentialProvider twcp)
             {
                 Console.WriteLine("found twcp");
