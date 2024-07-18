@@ -75,7 +75,8 @@ namespace CredentialHelper.UI
         void OnVerified(ApiClient.VerificationResult creds)
         {
             this.VerificationResult = creds;
-            ShowMsgBox("Success", _ => this.Close());
+            this.SmartInvoke(_ => this.Close());
+            //ShowMsgBox("Success", _ => this.Close());
             this.Close();
         }
 
@@ -84,7 +85,15 @@ namespace CredentialHelper.UI
             var verifyResult = await Task.Run(() => CameraControl.UI.verifyQrCode(qrCode));
             if (verifyResult.ResultValue is { } creds)
             {
+                Console.WriteLine($"Found credentials from qr code: {qrCode}");
                 OnVerified(creds);
+            } else
+            {
+                if(verifyResult.ErrorValue is { } vError)
+                {
+                    ShowMsgBox(vError.ToString());
+
+                } else ShowMsgBox("Qr Code failed verification");
             }
         }
 
@@ -126,6 +135,9 @@ namespace CredentialHelper.UI
             if (this.txtQrValue.Text.IsValueString())
             {
                 await VerifyQrCode(this.txtQrValue.Text);
+            } else
+            {
+                ShowMsgBox("No QrValue found");
             }
         }
 

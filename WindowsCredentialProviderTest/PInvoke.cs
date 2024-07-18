@@ -3,7 +3,9 @@ using System.Runtime.InteropServices;
 
 namespace WindowsCredentialProviderTest
 {
+    // see also: https://stackoverflow.com/questions/125341/how-do-you-do-impersonation-in-net/7250145#7250145 for impersonation info
     public static class PInvoke
+
     {
         [DllImport("kernel32.dll", EntryPoint = "CopyMemory", SetLastError = false)]
         public static extern void CopyMemory(IntPtr dest, IntPtr src, uint count);
@@ -61,6 +63,11 @@ namespace WindowsCredentialProviderTest
 
             #endregion
         }
+
+        // https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-logonusera
+        // added for impersonation attempts to test credentials returned
+        [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+        internal static extern bool LogonUser(string lpszUsername, string lpszDomain, string lpszPassword, int dwLogonType, int dwLogonProvider, out IntPtr phToken);
 
         [DllImport("credui.dll", CharSet = CharSet.Unicode, SetLastError = true)]
         public static extern bool CredPackAuthenticationBuffer(

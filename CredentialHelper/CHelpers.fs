@@ -2,6 +2,8 @@
 module CredentialHelper.CHelpers
 open System.Runtime.CompilerServices
 
+open Reusable
+
 [<Extension>]
 let toList (this: 't seq) =
     List.ofSeq this
@@ -34,4 +36,14 @@ let createLatchedFunctionA action : System.Action =
     let f = createLatchedFunction action
     new System.Action(fun () -> f())
 
+[<Extension>]
+let before(this: string, delimiter:string): string =
+    match this with
+    | Before delimiter value -> value
+    | _ -> invalidArg "this" "Delimiter not found"
 
+[<Extension>]
+let after(this: string, delimiter:string) : string = 
+    match this with
+    | After delimiter value -> value
+    | _ -> invalidArg "this" "Delimiter not found"

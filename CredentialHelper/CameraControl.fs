@@ -350,10 +350,14 @@ module UI =
             let t = ApiClient.tryValidate baseUrl { Code = qrResult}
             t
             |> Async.AwaitTask
-            |> Async.catchBind
+            |> Async.Catch
             |> Async.RunSynchronously
+            |> function 
+                | Choice1Of2(Ok v) -> Ok v
+                | Choice1Of2(Error e) -> Error e
+                | Choice2Of2 e -> Error $"{e.Message}:{e.StackTrace}"
             |> function
-                | Error e -> Error(ApiValidationFailed e.Message)
+                | Error e -> Error(ApiValidationFailed e)
                 | Ok v ->
                     Cereal.tryDeserialize<ApiClient.VerificationResult> v
                     |> Result.mapError(fun (txt,ex) ->

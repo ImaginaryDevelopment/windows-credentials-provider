@@ -10,11 +10,19 @@
 
     public static class Log
     {
+        public static void LogTextWithCaller(string text, Logging.EventLogType elt = null, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerName = "")
+        {
+            var cfp = Reusable.tryMungeCallerFilePath(callerFilePath);
+            // try getting just the file name
+            LogText($"{text}: {callerName}:{cfp}");
+        }
+
         public static void LogText(string text, Logging.EventLogType elt = null)
         {
             var logFileNames = new[]
             {
                 @"C:\net481\CredentialProviderLog.log.txt",
+                // we should try to cd to codebase maybe?
                 "CredentialProviderLog.log.txt"
             }.toList();
             var elt2 = elt ?? Logging.EventLogType.Warning;

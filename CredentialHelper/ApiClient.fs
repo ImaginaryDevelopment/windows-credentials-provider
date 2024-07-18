@@ -131,28 +131,30 @@ type AuthPost = {
 
 let tryValidate verifiedBase (value: AuthPost) =
     // api/qr/auth
-    task {
-        try
-            let wReq = HttpWReq.createWReq (verifiedBase,"/api/qr/auth") WReqType.Post
-            use tw = new System.IO.StreamWriter(wReq.GetRequestStream()) :> System.IO.TextWriter
-            let value = System.Text.Json.JsonSerializer.Serialize value
-            printfn "Post value is '%s'" value
-
-            do! tw.WriteAsync value
-            do! tw.FlushAsync()
-            printfn "post flushed"
-            let! result = HttpWReq.tryGetResultString wReq
-            printfn "Got result string"
-            match result with
-            | Ok value ->
-                printfn "Got result:'%s'" value
-                return Ok value
-            | Error e ->
-                printfn "Result fetch failed"
-                return Error e
-
-        with ex -> return Error ex
-    }
+    let t = 
+        task {
+                let wReq = HttpWReq.createWReq (verifiedBase,"/api/qr/auth") WReqType.Post
+                use tw = new System.IO.StreamWriter(wReq.GetRequestStream()) :> System.IO.TextWriter
+                match Cereal.serialize value with
+                | Error e ->
+                    let err = Error e
+                    return Error e
+                | Ok value ->
+                    printfn "Post value is '%s'" value
+                    do! tw.WriteAsync(value)
+                    do! tw.FlushAsync()
+                    printfn "post flushed"
+                    let! result = HttpWReq.tryGetResultString wReq
+                    printfn "Got result string"
+                    match result with
+                    | Ok value ->
+                        printfn "Got result:'%s'" value
+                        return Ok value
+                    | Error e ->
+                        printfn "Result fetch failed"
+                        return Error e.Message
+        }
+    t
 
 
 
