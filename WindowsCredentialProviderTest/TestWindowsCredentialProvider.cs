@@ -97,6 +97,7 @@
 
             // more recent example has this:
             pdwCount = credentialTile != null ? (uint)credentialTile.CredentialProviderFieldDescriptorList.Count : 0;
+
             return credentialTile != null ? HResultValues.S_OK : HResultValues.E_INVALIDARG;
         }
 

@@ -279,6 +279,15 @@ module Cereal =
         with ex ->
             Error(x,ex)
 
+    let serialize<'t>(x:'t) =
+        try
+            System.Text.Json.JsonSerializer.Serialize x |> Ok
+        with
+            | :? System.TypeInitializationException as te ->
+                match te.InnerException with
+                | null -> Error $"{te.Message}:{te.StackTrace}"
+                | ie -> Error $"TypeInitializerEx:{ie.Message}:{ie.StackTrace}";
+
 let tryInvokes functions =
     functions
     |> List.choose(fun f ->
@@ -293,6 +302,15 @@ type ReflectionInfo = {
     Location: string
     Version: string
 }
+
+let tryMungeCallerFilePath (cfp: string) =
+    match cfp with
+    | ValueString cfp ->
+        try
+            System.IO.Path.GetFileName cfp
+        with _ ->
+            cfp
+    | _ -> cfp
 
 // https://stackoverflow.com/questions/52797/how-do-i-get-the-path-of-the-assembly-the-code-is-in
 let tryGetLocation(asm:System.Reflection.Assembly) =
