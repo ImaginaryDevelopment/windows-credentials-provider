@@ -338,16 +338,16 @@ module UI =
         let value = getRunText cs
         setTextIfNot runButton value
 
-    let verifyQrCode qrResult =
-        let url = System.Environment.GetEnvironmentVariable "devapi"
+    let verifyQrCode (config:AppSettings.AppConfig) qrResult =
+        let url = config.DevApi
         match ApiClient.BaseUrl.TryCreate url with
         | Error e ->
-            Error <| ApiUrlError $"{qrResult}:'%%devapi%%':'{url}':{e}"
+            Error <| ApiUrlError $"{qrResult}:devapi:'{url}':{e}"
         | Ok baseUrl ->
             //printfn "About to show msg box"
             //showMsgBox qrResult
             //printfn "Yay we made it"
-            let t = ApiClient.tryValidate baseUrl { Code = qrResult}
+            let t = ApiClient.tryValidate config baseUrl { Code = qrResult}
             t
             |> Async.AwaitTask
             |> Async.Catch
@@ -355,7 +355,9 @@ module UI =
             |> function 
                 | Choice1Of2(Ok v) -> Ok v
                 | Choice1Of2(Error e) -> Error e
-                | Choice2Of2 e -> Error $"{e.Message}:{e.StackTrace}"
+                | Choice2Of2 e ->
+                    let exT = e.GetType().Name
+                    Error $"{exT}:{e.Message}:{e.StackTrace}"
             |> function
                 | Error e -> Error(ApiValidationFailed e)
                 | Ok v ->
