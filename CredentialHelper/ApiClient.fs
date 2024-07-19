@@ -67,7 +67,7 @@ module HttpWReq =
         | Post
         | Get of queryParams: Map<string,string>
 
-    let createWReq(verifiedBase, relPath) wrType =
+    let createWReq (config:AppSettings.AppConfig) (verifiedBase, relPath) wrType =
         let url =
             match wrType with
             | Post -> Map.empty
@@ -82,11 +82,21 @@ module HttpWReq =
             match wrType with
             | Post -> "POST"
             | Get _ -> "GET"
+        config.UseDefaultCredentials
+        |> Option.iter(fun udc ->
+            wr.UseDefaultCredentials <- udc
+        )
 
-        wr.UseDefaultCredentials <- true
         wr.UserAgent <- System.Environment.MachineName
         wr.PreAuthenticate <- true
-        wr.ServicePoint.Expect100Continue <- false
+        config.Expect100Continue
+        |> Option.iter(fun ec ->
+            wr.ServicePoint.Expect100Continue <- ec
+        )
+        config.SecurityProtocolType
+        |> Option.iter(fun spt ->
+            System.Net.ServicePointManager.SecurityProtocol <- spt
+        )
         wr.ConnectionGroupName <- $"Thread-{System.Threading.Thread.CurrentThread.ManagedThreadId}"
         wr
 
@@ -112,10 +122,10 @@ module HttpWReq =
 
 open HttpWReq
 
-let tryPingServer verifiedBase =
+let tryPingServer config verifiedBase =
     task {
         try
-            let wReq = HttpWReq.createWReq(verifiedBase, "/api/qr/ping") (WReqType.Get Map.empty)
+            let wReq = HttpWReq.createWReq config (verifiedBase, "/api/qr/ping") (WReqType.Get Map.empty)
             let! rj = HttpWReq.tryGetResultString wReq
             match rj with
             | Ok rj ->
@@ -129,11 +139,11 @@ type AuthPost = {
     Code: string
 }
 
-let tryValidate verifiedBase (value: AuthPost) =
+let tryValidate config verifiedBase (value: AuthPost) =
     // api/qr/auth
     let t = 
         task {
-                let wReq = HttpWReq.createWReq (verifiedBase,"/api/qr/auth") WReqType.Post
+                let wReq = HttpWReq.createWReq config (verifiedBase,"/api/qr/auth") WReqType.Post
                 use tw = new System.IO.StreamWriter(wReq.GetRequestStream()) :> System.IO.TextWriter
                 match Cereal.serialize value with
                 | Error e ->

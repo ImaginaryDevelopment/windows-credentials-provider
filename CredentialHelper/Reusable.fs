@@ -114,6 +114,15 @@ type String with
         if String.endsWith delimiter text then text
         else text + delimiter
 
+    static member toLower text =
+        match text with
+        | NonValueString | WhiteSpace _ -> text
+        | ValueString text -> text.ToLower()
+    static member toUpper text =
+        match text with
+        | NonValueString | WhiteSpace _ -> text
+        | ValueString text -> text.ToUpper()
+
 let (|After|_|) delimiter text =
     text |> String.tryAfter delimiter
 
@@ -269,6 +278,17 @@ module Async =
             | Ok (Error e) -> Error e
             | Ok (Ok v) -> Ok v
         )
+type Reporter =
+    abstract member LogError: string*exn -> unit
+    abstract member LogError: string -> unit
+    abstract member Log: string -> unit
+    abstract member Log<'t>: string * 't -> unit
+
+type IDeserializer =
+    abstract member Deserialize<'t>: string -> Result<'t,string*exn>
+
+type IDeserializerR =
+    abstract member Deserialize<'t>: string -> 't option
 
 module Cereal =
     let deserialize<'t>(x:string) =
@@ -289,6 +309,24 @@ module Cereal =
                 match te.InnerException with
                 | null -> Error $"{te.Message}:{te.StackTrace}"
                 | ie -> Error $"TypeInitializerEx:{ie.Message}:{ie.StackTrace}";
+
+    let deserializer =
+        { new IDeserializer with
+            member _.Deserialize<'t>(value:string) =
+                let result = tryDeserialize<'t>(value)
+                result
+        }
+
+    // for swallows and things that are not important to watch for failures
+    let makeDeserializerR (reporter:Reporter) (deserializer:IDeserializer) =
+        { new IDeserializerR with
+            member _.Deserialize<'t>(value:string) =
+                match deserializer.Deserialize<'t> value with
+                | Ok v -> Some v
+                | Error (msg,exn) ->
+                    reporter.LogError(msg,exn)
+                    None
+        }
 
 let tryInvokes functions =
     functions
@@ -325,7 +363,6 @@ let tryGetLocation(asm:System.Reflection.Assembly) =
     |> tryInvokes
     |> Option.defaultValue null
 
-
 let getReflectInfo(asm:System.Reflection.Assembly) =
     asm.GetCustomAttributes(typeof<System.Reflection.AssemblyVersionAttribute>, false)
     |> Option.ofObj
@@ -340,4 +377,3 @@ let getReflectInfo(asm:System.Reflection.Assembly) =
                 Location= tryGetLocation asm
                 }
         | _ -> None
-

@@ -41,7 +41,7 @@ class Program
 
         } else if (runType.IsShowUI)
         {
-            CredentialHelper.ApiClient.VerificationResult vr = null;
+            CredentialHelper.ApiClient.VerificationResult? vr = null;
             using (var form1 = new CredentialHelper.UI.Form1())
             {
                 if (form1.InvokeRequired)
@@ -118,8 +118,9 @@ class Program
     static void TryApiCall()
     {
         Log.LogMethodCall();
-        var baseUrl = CredentialHelper.ApiClient.BaseUrl.TryCreate(System.Environment.GetEnvironmentVariable("devapi")).ResultValue;
-        var r = CredentialHelper.ApiClient.tryValidate(baseUrl, new CredentialHelper.ApiClient.AuthPost("1")).Result;
+        var devApiUrl = Form1.AppConfig.DevApi;
+        var baseUrl = CredentialHelper.ApiClient.BaseUrl.TryCreate(devApiUrl).ResultValue;
+        var r = CredentialHelper.ApiClient.tryValidate(Form1.AppConfig, baseUrl, new CredentialHelper.ApiClient.AuthPost("1")).Result;
         Console.WriteLine(r);
     }
 
