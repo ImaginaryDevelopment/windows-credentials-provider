@@ -272,7 +272,8 @@ module Async =
 
 module Cereal =
     let deserialize<'t>(x:string) =
-        System.Text.Json.JsonSerializer.Deserialize<'t>(x)
+        Newtonsoft.Json.JsonConvert.DeserializeObject<'t>(x)
+        //System.Text.Json.JsonSerializer.Deserialize<'t>(x)
     let tryDeserialize<'t>(x: string) =
         try
             deserialize<'t>(x) |> Ok
@@ -281,7 +282,8 @@ module Cereal =
 
     let serialize<'t>(x:'t) =
         try
-            System.Text.Json.JsonSerializer.Serialize x |> Ok
+            //System.Text.Json.JsonSerializer.Serialize x |> Ok
+            Newtonsoft.Json.JsonConvert.SerializeObject x |> Ok
         with
             | :? System.TypeInitializationException as te ->
                 match te.InnerException with
