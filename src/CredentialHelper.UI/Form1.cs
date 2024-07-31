@@ -33,6 +33,8 @@ public partial class Form1 : Form, IDisposable
     public Form1()
     {
         InitializeComponent();
+        FixFlicker();
+
         imControl = CameraControl.UI.createCameraControl(this.pictureBox1);
         Func<bool> pvDelegate = () => CredentialHelper.CameraControl.CameraState.Stopped.Equals(imControl.CameraState.Value)
             && !imControl.IsRunning;
@@ -56,12 +58,48 @@ public partial class Form1 : Form, IDisposable
         // relies on capture camera invoking the setter above to kick off post-initializing work
         imControl.CaptureCamera(cameraIndex.Value);
         this.Text = this.Text + "(" + PartialGen.Built.ToString() + ")";
+#if DEBUG
+        this.btnDiag.Click += this.BtnDiag_Click;
+        this.Text += "-DEBUG";
+#else
+        this.btnDiag.Visible = false;
+        this.btnDiag.Enabled = false;
+    
+#endif
+
 
     }
 
+    void FixFlicker()
+    {
+        //this.DoubleBuffered = true;
+        //this.pictureBox1.SetDoubleBuffered();
+        //this.SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.DoubleBuffer, true);
+    }
+
+    //protected override CreateParams CreateParams
+    //{
+    //    get
+    //    {
+    //        CreateParams handleParam = base.CreateParams;
+    //        handleParam.ExStyle |= 0x02000000;   // WS_EX_COMPOSITED
+    //        return handleParam;
+    //    }
+    //}
+
+#if DEBUG
+    void BtnDiag_Click(object sender, EventArgs e)
+    {
+        this.btnDiag.Enabled = false;
+        System.Diagnostics.Process.Start("taskmgr");
+
+    }
+
+#endif
+
     public void CleanPictureBox()
     {
-        CredentialHelper.CameraControl.UI.cleanPictureBox(this.pictureBox1);
+        //CredentialHelper.CameraControl.UI.cleanPictureBox(null,this.pictureBox1);
     }
 
     void runButton_Click(object sender, EventArgs e)
@@ -160,7 +198,7 @@ public partial class Form1 : Form, IDisposable
             {
                 try
                 {
-                    Console.Write($"disposing: '{x.Item1}'");
+                    Console.WriteLine($"disposing: '{x.Item1}'");
                     x.Item2.Dispose();
                 } catch { }
             });

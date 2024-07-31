@@ -21,15 +21,15 @@
             this.snapButton = new System.Windows.Forms.Button();
             this.txtQrValue = new System.Windows.Forms.TextBox();
             this.btnLogin = new System.Windows.Forms.Button();
+            this.btnDiag = new System.Windows.Forms.Button();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).BeginInit();
             this.SuspendLayout();
             // 
             // pictureBox1
             // 
-            this.pictureBox1.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.pictureBox1.Location = new System.Drawing.Point(0, 0);
+            this.pictureBox1.Location = new System.Drawing.Point(12, 12);
             this.pictureBox1.Name = "pictureBox1";
-            this.pictureBox1.Size = new System.Drawing.Size(862, 546);
+            this.pictureBox1.Size = new System.Drawing.Size(697, 445);
             this.pictureBox1.TabIndex = 0;
             this.pictureBox1.TabStop = false;
             // 
@@ -81,11 +81,21 @@
             this.btnLogin.UseVisualStyleBackColor = true;
             this.btnLogin.Click += new System.EventHandler(this.btnLogin_Click);
             // 
+            // btnDiag
+            // 
+            this.btnDiag.Location = new System.Drawing.Point(498, 488);
+            this.btnDiag.Name = "btnDiag";
+            this.btnDiag.Size = new System.Drawing.Size(75, 23);
+            this.btnDiag.TabIndex = 6;
+            this.btnDiag.Text = "Diag";
+            this.btnDiag.UseVisualStyleBackColor = true;
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(862, 546);
+            this.Controls.Add(this.btnDiag);
             this.Controls.Add(this.btnLogin);
             this.Controls.Add(this.txtQrValue);
             this.Controls.Add(this.snapButton);
@@ -108,5 +118,6 @@
         private System.Windows.Forms.Button snapButton;
         private System.Windows.Forms.TextBox txtQrValue;
         private System.Windows.Forms.Button btnLogin;
+        private System.Windows.Forms.Button btnDiag;
     }
 }

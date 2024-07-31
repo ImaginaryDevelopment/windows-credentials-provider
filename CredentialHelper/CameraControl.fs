@@ -275,14 +275,14 @@ module UI =
 
     let mutable onceInitialized = None
 
-    let cleanPictureBox (pb: PictureBox) =
+    let cleanPictureBox next (pb: PictureBox) =
         match pb.Image with
         | null -> ()
         | x ->
 
             // clear the image from the picture box
             let f () =
-                pb.Image <- null
+                pb.Image <- next
             pb |> ensureInvoke f |> ignore<obj>
 
             // dispose the image
@@ -303,7 +303,7 @@ module UI =
                         |> Option.iter(fun f ->
                             f()
                         )
-            cleanPictureBox pb
+            cleanPictureBox v pb
             let f() = pb.Image <- v
             pb |> ensureInvoke f |> ignore<obj>
 
@@ -331,7 +331,7 @@ module UI =
 
         | CameraState.Started ->
             imControl.StopCapture()
-            cleanPictureBox pb
+            cleanPictureBox null pb
         //setRunText imControl.CameraState.Value runButton
 
     let setRunText cs (runButton:Button) =
@@ -406,7 +406,7 @@ module UI =
                 |> function
                     | Some i ->
                         printfn "Setting combobox index to %i" i
-                        cleanPictureBox(pb)
+                        cleanPictureBox null pb
                         cameraIndexComboBox.SelectedIndex <- i
                     | None ->
                         printfn "Changing combobox text to %i" cameraIndex.Value
