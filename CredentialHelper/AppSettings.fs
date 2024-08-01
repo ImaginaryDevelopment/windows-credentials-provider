@@ -34,7 +34,7 @@ module Env =
                     |> Option.ofValueString
                 )
             with ex ->
-                let t = ex.GetType().Name
+                let t = tryGetTypeName ex
                 eprintfn $"Env var: %s{t}: %s{ex.Message}"
                 None
         | _ ->

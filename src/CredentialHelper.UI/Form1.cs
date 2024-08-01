@@ -5,6 +5,7 @@ using System.Data;
 using System.Drawing;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
@@ -16,13 +17,17 @@ namespace CredentialHelper.UI;
 public partial class Form1 : Form, IDisposable
 {
 
-    readonly CredentialHelper.QRCode.QrManager qrControl = new();
+    readonly CredentialHelper.QRCode.QrManager qrManager = new();
+    readonly bool ctsIsOwn;
+    readonly CancellationTokenSource cts;
     // TODO: rename once translation is complete
-    readonly CredentialHelper.CameraControl.CameraControl imControl;
+    readonly CredentialHelper.CameraControl.CameraControl cameraControl;
 
     readonly CredentialHelper.CameraControl.ProtectedValue<int> cameraIndex;
 
     readonly Action onCameraIndexChange;
+
+    readonly CredentialHelper.CompositionRoot.Worker worker;
 
     readonly List<(string, IDisposable)> disposables = new();
 
@@ -30,14 +35,23 @@ public partial class Form1 : Form, IDisposable
 
     public ApiClient.VerificationResult? VerificationResult { get; set; }
 
-    public Form1()
+    public Form1(CancellationTokenSource cts = null)
     {
         InitializeComponent();
-        FixFlicker();
 
-        imControl = CameraControl.UI.createCameraControl(this.pictureBox1);
-        Func<bool> pvDelegate = () => CredentialHelper.CameraControl.CameraState.Stopped.Equals(imControl.CameraState.Value)
-            && !imControl.IsRunning;
+        if (cts == null)
+        {
+            ctsIsOwn = true;
+            cts = new CancellationTokenSource();
+        } else
+        {
+            ctsIsOwn = false;
+        }
+        this.cts = cts ?? throw new InvalidOperationException("cts must be set");
+
+        cameraControl = CameraControl.UI.createCameraControl(this.pictureBox1, this.cts.Token);
+        Func<bool> pvDelegate = () => CredentialHelper.CameraControl.CameraState.Stopped.Equals(cameraControl.CameraState.Value)
+            && !cameraControl.IsRunning;
         //switch (imControl.CameraState.Value)
         //{
         //    case CredentialHelper.CameraControl.CameraState.Stopped:
@@ -49,14 +63,15 @@ public partial class Form1 : Form, IDisposable
         //var pvDelegate2 = pvDelegate.toFSharpFunc<bool>();
 
         cameraIndex = CredentialHelper.CameraControl.ProtectedValue<int>.CCreate(0, pvDelegate);
-        onCameraIndexChange = CHelpers.createLatchedFunctionA(() => CameraControl.UI.onCameraIndexChangeRequest(cameraIndexComboBox, cameraIndex, imControl, pictureBox1));
+        onCameraIndexChange = CHelpers.createLatchedFunctionA(() => CameraControl.UI.onCameraIndexChangeRequest(cameraIndexComboBox, cameraIndex, cameraControl, pictureBox1, this.cts.Token));
 
-        disposables.Add(("qrControl", imControl));
-        disposables.Add(("combobox camerastate", CameraControl.UI.hookUpCameraStateChanges(imControl, runButton, snapButton, cameraIndexComboBox)));
+        disposables.Add(("qrControl", cameraControl));
+        disposables.Add(("combobox camerastate", CameraControl.UI.hookUpCameraStateChanges(cameraControl, runButton, snapButton, cameraIndexComboBox)));
+        disposables.Add(("cts", this.cts));
         // there is a startup time to grabbing the camera and starting to display it on the screen
 
         // relies on capture camera invoking the setter above to kick off post-initializing work
-        imControl.CaptureCamera(cameraIndex.Value);
+        cameraControl.CaptureCamera(cameraIndex.Value, this.cts.Token);
         this.Text = this.Text + "(" + PartialGen.Built.ToString() + ")";
 #if DEBUG
         this.btnDiag.Click += this.BtnDiag_Click;
@@ -67,25 +82,11 @@ public partial class Form1 : Form, IDisposable
     
 #endif
 
+        worker = new(() => this.IsHandleCreated, cameraControl, qrManager, AppConfig, v => OnVerified(v), this.cts);
 
     }
 
-    void FixFlicker()
-    {
-        //this.DoubleBuffered = true;
-        //this.pictureBox1.SetDoubleBuffered();
-        //this.SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.DoubleBuffer, true);
-    }
-
-    //protected override CreateParams CreateParams
-    //{
-    //    get
-    //    {
-    //        CreateParams handleParam = base.CreateParams;
-    //        handleParam.ExStyle |= 0x02000000;   // WS_EX_COMPOSITED
-    //        return handleParam;
-    //    }
-    //}
+    public void RequestCancellation() => InitiateCancel();
 
 #if DEBUG
     void BtnDiag_Click(object sender, EventArgs e)
@@ -104,8 +105,8 @@ public partial class Form1 : Form, IDisposable
 
     void runButton_Click(object sender, EventArgs e)
     {
-        CredentialHelper.CameraControl.UI.onRunRequest(imControl, this.cameraIndex, this.pictureBox1);
-        CameraControl.UI.setRunText(imControl.CameraState.Value, this.runButton);
+        CredentialHelper.CameraControl.UI.onRunRequest(cameraControl, this.cameraIndex, this.pictureBox1, this.cts.Token);
+        CameraControl.UI.setRunText(cameraControl.CameraState.Value, this.runButton);
     }
 
     void cameraIndexComboBox_SelectedValueChanged(object sender, EventArgs e)
@@ -116,6 +117,7 @@ public partial class Form1 : Form, IDisposable
     void OnVerified(ApiClient.VerificationResult creds)
     {
         this.VerificationResult = creds;
+        InitiateCancel();
         this.SmartInvoke(_ => this.Close());
         //ShowMsgBox("Success", _ => this.Close());
         this.Close();
@@ -123,7 +125,7 @@ public partial class Form1 : Form, IDisposable
 
     async Task VerifyQrCode(string qrCode)
     {
-        var verifyResult = await Task.Run(() => CameraControl.UI.verifyQrCode(AppConfig, qrCode));
+        var verifyResult = await Task.Run(() => CameraControl.UI.verifyQrCode(AppConfig, qrCode, this.cts.Token), this.cts.Token);
         if (verifyResult.ResultValue is { } creds)
         {
             Console.WriteLine($"Found credentials from qr code: {qrCode}");
@@ -147,14 +149,15 @@ public partial class Form1 : Form, IDisposable
 
     async void snapButton_Click(object sender, EventArgs e)
     {
+        if (worker.IsRunning) return;
         try
         {
             //this.pictureBox2.Image = this.pictureBox1.Image;
             // trying to stop the ui from freezing while it processes
-            var rBm = await Task.Run(() => CameraControl.UI.onSnapRequest(imControl));
-            if (rBm.IsOk && rBm.tryGetValue()?.Value is { } bm)
+            var rBm = await Task.Run(() => CameraControl.UI.onSnapRequest(cameraControl));
+            if (rBm.IsOk && rBm.tryGetValue()?.Value is { } dispBm && dispBm.TryGet("SnapButton_click")?.Value is { } bm)
             {
-                var r2 = qrControl.TryDecode(bm);
+                var r2 = qrManager.TryDecode(bm, cts.Token)?.TryGetCode();
                 if (r2 != null && r2?.Value is { } qrValue && qrValue.IsValueString())
                 {
                     txtQrValue.Text = qrValue;
@@ -180,6 +183,32 @@ public partial class Form1 : Form, IDisposable
         {
             ShowMsgBox("No QrValue found");
         }
+    }
+
+    void InitiateCancel()
+    {
+        if (!this.cts.IsCancellationRequested)
+        {
+            this.cts.Cancel();
+        }
+    }
+
+    protected override void OnShown(EventArgs e)
+    {
+        worker?.Start();
+        base.OnShown(e);
+    }
+
+    protected override void OnClosing(CancelEventArgs e)
+    {
+        InitiateCancel();
+        base.OnClosing(e);
+    }
+
+    protected override void OnClosed(EventArgs e)
+    {
+        InitiateCancel();
+        base.OnClosed(e);
     }
 
     /// <summary>

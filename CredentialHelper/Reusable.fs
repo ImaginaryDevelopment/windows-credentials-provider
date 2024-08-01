@@ -12,6 +12,16 @@ type Property<'t> = {
 
 let failNullOrEmpty paramName x = if String.IsNullOrEmpty x then raise <| ArgumentOutOfRangeException paramName
 
+let inline tryGetTypeName(value:obj) =
+    match value with
+    | null -> "<null>"
+    | _ ->
+        try
+            value.GetType().Name
+        with ex ->
+            eprintfn "Failed to read type name"
+            "<typeUnk>"
+
 let tee f x =
     f x
     x
@@ -47,6 +57,11 @@ module Option =
         function
         | None -> f(); None
         | Some x -> Some x
+
+    let inline ofSnd (x,y) =
+        match y with
+        | None -> None
+        | Some y -> Some(x,y)
 
 let (|ValueString|WhiteSpace|NonValueString|) =
     function
@@ -156,7 +171,7 @@ let inline fromParser f x =
 
 let inline tryParseInt x = fromParser System.Int32.TryParse x
 
-let createDisposable (onDispose: unit -> unit) =
+let inline createDisposable (onDispose: unit -> unit) =
     {new System.IDisposable with member x.Dispose() = onDispose()}
 
 let createObserver (onNext,onCompleted, onError): IObserver<'t> =
@@ -190,6 +205,75 @@ let tryDispose title x =
             dispose x
         with _ ->
             eprintfn "Failed to dispose: '%s'" title
+
+type DisposalTracker<'t when 't :> IDisposable>(msg, value, throwOnDisposedAccess) =
+    let gId = Guid.NewGuid()
+    let mutable isDisposed = false
+    let mutable disposedTitle = None
+    let hasValue = not <| Object.ReferenceEquals(null,value)
+    let l = if hasValue then new obj() else null
+    let getText() = $"{msg}(%A{gId})"
+
+    member _.GetText() = getText()
+    member _.IsDisposed = isDisposed
+    member _.Value:'t =
+        if isDisposed then
+            let text = 
+                match disposedTitle with
+                | None -> $"Disposed access to {getText()}"
+                | Some disposedTitle ->
+                    $"Disposed access to {getText()} after '%s{disposedTitle}'" 
+            if throwOnDisposedAccess then
+                invalidOp text
+            else
+                eprintfn "%s" text
+        value
+
+    member _.TryGet( ?title :string) =
+        let title = title |> Option.bind Option.ofValueString |> Option.map (sprintf "- %s") |> Option.defaultValue ""
+        if isDisposed then
+            eprintfn $"Attempt to read from disposed({getText()}){title}"
+            None
+        elif not hasValue then
+            eprintfn $"Attempt to read from null({getText()}){title}"
+            None
+        else Some value
+
+    member _.Dispose(title: string) =
+        if not hasValue then
+            eprintfn "Disposal(%s) called on null value: %s" title <| getText() 
+        else
+            lock l (fun () ->
+                if not isDisposed then
+                    //printfn "Disposing(%s) %s: " title <| getText()
+                    isDisposed <- true
+                    disposedTitle <- Some title
+                    try
+                        value.Dispose()
+                    with ex ->
+                        eprintfn "Disposal(%s) failed %s: %s'%s'" title (getText()) (tryGetTypeName ex) ex.Message
+                else
+                    eprintfn "Disposal(%s) called on disposed value: %s" title <| getText()
+            )
+
+    member x.Dispose() = x.Dispose("?")
+
+
+    interface IDisposable with
+        member x.Dispose() = x.Dispose()
+
+module DisposalTracker =
+    let inline tryGet (dt:DisposalTracker<_>) = dt.TryGet()
+
+    //    if dt.IsDisposed then None
+    //    else dt |> Option.map toDisposable
+    // assume we're option wrapped
+    let tryGetNamedDisposable title (dt:DisposalTracker<_> option) =
+        dt |> Option.bind (fun dt ->
+            if dt.IsDisposed then 
+                createDisposable(fun () -> dt.Dispose title) |> Some
+            else None
+        )
 
 type IObservableStore<'t> =
     inherit IObservable<'t>

@@ -133,7 +133,8 @@ type CameraControl(imageProp: Property<Image>) =
 
     let captureWrapper = new CaptureWrapper()
     // hold onto image so it can be disposed
-    let mutable image: Bitmap = null
+    let mutable image: DisposalTracker<Bitmap> option = None
+    let mutable frame: DisposalTracker<Mat> option = None
     let mutable cameraThread : Thread = null // Thread(ThreadStart(this.capturecameracallback))
     let mutable cameraState = ObservableStore(CameraState.Stopped)
 
@@ -143,45 +144,60 @@ type CameraControl(imageProp: Property<Image>) =
     // hide details
     member _.IsRunning = cameraState.Value = CameraState.Started && captureWrapper.IsOpened
 
-    member _.CaptureCamera (index: int) =
+    member _.CaptureCamera (index: int, ct: System.Threading.CancellationToken) =
         match cameraState.Value with
         | Started
         | Initializing -> ()
         | Stopped ->
             // TODO: consider performance of running in too tight of a loop
             let captureCameraCallback =
-                let mutable frame: Mat = null
                 fun () ->
                     cameraState.Value <- Initializing
-                    frame <- new Mat()
-                    if captureWrapper.TryStart index then
-                        while cameraState.Value <> Stopped do
-                            if captureWrapper.Read frame then
+                    // should we reuse this one?
+                    if not <| captureWrapper.TryStart index then
+                        eprintfn "captureWrapper failed to start"
+                    else
+                        while not ct.IsCancellationRequested && cameraState.Value <> Stopped do
+                            match frame with
+                            | Some frame when frame.IsDisposed ->
+                                None
+                            | None -> None
+                            | Some frame -> Some frame
+                            |> Option.defaultWith(fun () ->
+                                let frameValue = new DisposalTracker<_>("MatFrame", new Mat(), false)
+                                frame <- Some frameValue
+                                frameValue
+                            )
+                            |> fun frame -> frame.TryGet()
+                            |> Option.iter (fun frame ->
+                                if not <| captureWrapper.Read frame then
+                                    eprintfn "Camera read failed: '%A'" cameraState.Value
+                                else
                                 cameraState.Value <- Started
                                 // get the old image to dispose later
                                 // should we be using the local `image` field instead of a getter?
-                                let toDispose = imageProp.Getter()
+                                let toDispose = image // imageProp.Getter()
                                 // store the image locally
-                                image <- BitmapConverter.ToBitmap frame
+                                let bm = BitmapConverter.ToBitmap frame
+                                image <- Some (new DisposalTracker<_>("BitFrame", bm, false))
                                 // set the image into the parent prop
-                                imageProp.Setter image
+                                imageProp.Setter bm
                                 // dispose the old image
                                 toDispose
-                                |> Option.ofObj
                                 |> Option.iter(fun image ->
-                                    image.Dispose()
+                                    if not image.IsDisposed then
+                                        image.Dispose("cameraCaptureCallback")
                                 )
-                            else
-                                eprintfn "Camera read failed: '%A'" cameraState.Value
-                    else
-                        eprintfn "captureWrapper failed to start"
-                    ()
+                            )
+                        ()
+
             match cameraThread with
             | null -> ()
             | _ -> cameraThread.Abort()
-            cameraThread <- Thread(ThreadStart captureCameraCallback)
-            cameraThread.Name <- "Camera reader"
-            cameraThread.Start()
+            if not ct.IsCancellationRequested then
+                cameraThread <- Thread(ThreadStart captureCameraCallback)
+                cameraThread.Name <- "Camera reader"
+                cameraThread.Start()
 
     member _.StopCapture () =
         match cameraState.Value with
@@ -193,20 +209,9 @@ type CameraControl(imageProp: Property<Image>) =
     member _.TakeSnap () =
         match cameraState.Value with
         | CameraState.Started ->
-            match imageProp.Getter() with
-            | null -> Error "image getter returned null"
-            | image ->
-                printfn "Attempting to grab image"
-                try
-                    let snapshot = new Bitmap(image)
-                    printfn "Bitmap made from image"
-                    Ok snapshot
-                with
-                    | :? InvalidOperationException as ex ->
-                        // snapshot fail
-                        Error ex.Message
-                    | :? ArgumentException as ex ->
-                        Error ex.Message
+            match image with
+            | None -> Error "No image"
+            | Some image -> Ok image
 
         | CameraState.Stopped ->
             let msg = "Cannot take picture if the camera isn't capturing images"
@@ -225,12 +230,15 @@ type CameraControl(imageProp: Property<Image>) =
                     cameraThread.Abort()
                 with _ -> ()
         )
-        let disposals : (string * IDisposable) list =
+        let disposals : (string * IDisposable option) list =
             [
-                nameof captureWrapper, captureWrapper // |> Option.ofObj |> Option.map toDisposable
-                nameof image, image // |> Option.ofObj |> Option.map toDisposable
+                nameof captureWrapper, Some captureWrapper // |> Option.ofObj |> Option.map toDisposable
+                //nameof image, image |> Option.bind (fun image -> image.TryGet() |> Option.map toDisposable) // |> Option.ofObj |> Option.map toDisposable
+                nameof image, image |> DisposalTracker.tryGetNamedDisposable "CameraControlDispose"
+                nameof frame, frame  |> DisposalTracker.tryGetNamedDisposable "CameraControlDispose"
             ]
         disposals
+        |> List.choose Option.ofSnd
         |> List.choose(fun (n,v) ->
             match v with
             | null -> None
@@ -242,20 +250,18 @@ type CameraControl(imageProp: Property<Image>) =
     interface IDisposable with
         member x.Dispose() = x.Dispose()
 
-type QrResult =
-    | QrNotFound
-    | QrCodeFound of string
-
 type ApiResult =
     | ApiUrlError of string
     | ApiValidationFailed of string
     | ApiResponseReadError of string
+    | Cancelled
     with
         member this.TryGetError () =
             match this with
             | ApiUrlError v -> v
             | ApiValidationFailed v -> v
             | ApiResponseReadError v -> v
+            | Cancelled -> nameof Cancelled
 
 type SnapshotResult =
     | InvalidCameraState
@@ -275,43 +281,66 @@ module UI =
 
     let mutable onceInitialized = None
 
-    let cleanPictureBox next (pb: PictureBox) =
-        match pb.Image with
-        | null -> ()
-        | x ->
+    let cleanPictureBox title next (pb: PictureBox, ct: System.Threading.CancellationToken) =
+        try
+            pb.Image |> Option.ofObj |> Some
+        with ex ->
+            eprintfn "Attempt to read pb Image failed:%s" title
+            None
+        |> Option.iter(
+            function
+            | None -> ()
+            | Some x ->
+                // clear the image from the picture box
+                let f () =
+                    if not ct.IsCancellationRequested then
+                        pb.Image <- next
+                if not ct.IsCancellationRequested then
+                    try
+                        pb |> ensureInvoke f |> ignore<obj>
+                    with
+                        // happens if the form is closed when we try to update the picturebox
+                        | :? System.ComponentModel.InvalidAsynchronousStateException ->
+                            eprintfn "Attempt to update invalid UI"
+                            eprintfn "Why?"
+                            ()
 
-            // clear the image from the picture box
-            let f () =
-                pb.Image <- next
-            pb |> ensureInvoke f |> ignore<obj>
+                // dispose the image
+                try
+                    x.Dispose()
+                with ex ->
+                    eprintfn "Failed to dispose image: '%s'" ex.Message
+        )
 
-            // dispose the image
-            try
-                x.Dispose()
-            with ex ->
-                eprintfn "Failed to dispose image: '%s'" ex.Message
 
-    let createCameraControl (pb:PictureBox) =
+    let createCameraControl (pb:PictureBox, ct: System.Threading.CancellationToken) =
         let mutable cc : CameraControl option = None
         let setter v =
-            cc
-            |> function
-                | None -> eprintfn "Setter called without camera control"
-                | Some cc ->
-                    if cc.CameraState.Value = CameraState.Started then
-                        onceInitialized
-                        |> Option.iter(fun f ->
-                            f()
-                        )
-            cleanPictureBox v pb
-            let f() = pb.Image <- v
-            pb |> ensureInvoke f |> ignore<obj>
+            if ct.IsCancellationRequested then
+                ()
+            else
+                cc
+                |> function
+                    | None -> eprintfn "Setter called without camera control"
+                    | Some cc ->
+                        if cc.CameraState.Value = CameraState.Started then
+                            onceInitialized
+                            |> Option.iter(fun f ->
+                                f()
+                            )
+
+                cleanPictureBox "createCameraControl" v (pb,ct)
+                let f() = pb.Image <- v
+                pb |> ensureInvoke f |> ignore<obj>
 
         let getter () =
             let mutable image: Image = null
-            let f() = image <- pb.Image
-            pb |> ensureInvoke f |> ignore<obj>
-            image
+            if ct.IsCancellationRequested then
+                image
+            else
+                let f() = image <- pb.Image
+                pb |> ensureInvoke f |> ignore<obj>
+                image
 
         let imControl = new CameraControl({Getter=getter; Setter= setter})
         cc <- Some imControl
@@ -323,22 +352,22 @@ module UI =
         | CameraState.Initializing -> nameof CameraState.Initializing
         | CameraState.Started -> "Stop"
 
-    let inline onRunRequest (imControl:CameraControl, cameraIndex:ProtectedValue<int>, pb) = 
+    let inline onRunRequest (imControl:CameraControl,cameraIndex:ProtectedValue<int>,pb,ct) = 
         match imControl.CameraState.Value with
         | Initializing -> ()
         | Stopped ->
-            imControl.CaptureCamera cameraIndex.Value
+            imControl.CaptureCamera (cameraIndex.Value,ct)
 
         | CameraState.Started ->
             imControl.StopCapture()
-            cleanPictureBox null pb
+            cleanPictureBox "onRunRequest" null (pb,ct)
         //setRunText imControl.CameraState.Value runButton
 
     let setRunText cs (runButton:Button) =
         let value = getRunText cs
         setTextIfNot runButton value
 
-    let verifyQrCode (config:AppSettings.AppConfig) qrResult =
+    let verifyQrCode (config:AppSettings.AppConfig) (qrResult,ct: CancellationToken) =
         let url = config.DevApi
         match ApiClient.BaseUrl.TryCreate url with
         | Error e ->
@@ -347,24 +376,27 @@ module UI =
             //printfn "About to show msg box"
             //showMsgBox qrResult
             //printfn "Yay we made it"
-            let t = ApiClient.tryValidate config baseUrl { Code = qrResult}
-            t
-            |> Async.AwaitTask
-            |> Async.Catch
-            |> Async.RunSynchronously
-            |> function 
-                | Choice1Of2(Ok v) -> Ok v
-                | Choice1Of2(Error e) -> Error e
-                | Choice2Of2 e ->
-                    let exT = e.GetType().Name
-                    Error $"{exT}:{e.Message}:{e.StackTrace}"
-            |> function
-                | Error e -> Error(ApiValidationFailed e)
-                | Ok v ->
-                    Cereal.tryDeserialize<ApiClient.VerificationResult> v
-                    |> Result.mapError(fun (txt,ex) ->
-                        ApiResponseReadError $"{ex.Message}:'{txt}'"
-                    )
+            if not ct.IsCancellationRequested then
+                let t = ApiClient.tryValidate config baseUrl { Code = qrResult}
+                t
+                |> Async.AwaitTask
+                |> Async.Catch
+                |> Async.RunSynchronously
+                |> function 
+                    | Choice1Of2(Ok v) -> Ok v
+                    | Choice1Of2(Error e) -> Error e
+                    | Choice2Of2 e ->
+                        let exT = e.GetType().Name
+                        Error $"{exT}:{e.Message}:{e.StackTrace}"
+                |> function
+                    | Error e -> Error(ApiValidationFailed e)
+                    | Ok v ->
+                        Cereal.tryDeserialize<ApiClient.VerificationResult> v
+                        |> Result.mapError(fun (txt,ex) ->
+                            ApiResponseReadError $"{ex.Message}:'{txt}'"
+                        )
+            else
+                Error ApiResult.Cancelled
 
     let onSnapRequest (imControl:CameraControl) =
 
@@ -380,39 +412,39 @@ module UI =
 
     let onQrVerifyRequest (qrControl:QRCode.QrManager) snapshot =
         qrControl.TryDecode snapshot
-        |> function
-            | Some v -> QrCodeFound v
-            | None -> QrNotFound
 
     let onVerifyRequest qrCode =
                     verifyQrCode qrCode
 
-    let onCameraIndexChangeRequest (cameraIndexComboBox: ComboBox, cameraIndex: ProtectedValue<int>, imControl:CameraControl, pb) =
-        match cameraIndexComboBox.SelectedItem |> Option.ofObj |> Option.defaultWith(fun () -> cameraIndexComboBox.Text) with
-        | :? int as i -> Some i
-        | :? string as s -> s |> String.trim |> tryParseInt
-        | _ -> None
-        |> Option.teeNone(fun _ ->
-                eprintfn "Could not read comboBox1 value: '%A'" cameraIndexComboBox.SelectedValue
-        )
-        |> Option.bind(fun i -> cameraIndex.TrySetValue i |> Option.ofFalse)
-        |> Option.iter(fun _ ->
-            eprintfn "Failed to set camera index: '%A' - '%A'" cameraIndexComboBox.SelectedItem cameraIndexComboBox.SelectedText
-            if imControl.IsRunning || imControl.CameraState.Value <> CameraState.Stopped then
-                // set the comboBox back to the value of the current camera index
-                cameraIndexComboBox.Items
-                |> Seq.cast<int>
-                |> Seq.tryFindIndex(fun v -> v = cameraIndex.Value)
-                |> function
-                    | Some i ->
-                        printfn "Setting combobox index to %i" i
-                        cleanPictureBox null pb
-                        cameraIndexComboBox.SelectedIndex <- i
-                    | None ->
-                        printfn "Changing combobox text to %i" cameraIndex.Value
-                        cameraIndexComboBox.SelectedValue <- cameraIndex.Value
-                        //comboBox1.SelectedText <- string cameraIndex.Value
-        )
+    let onCameraIndexChangeRequest (cameraIndexComboBox: ComboBox, cameraIndex: ProtectedValue<int>, imControl:CameraControl, pb:PictureBox, ct: System.Threading.CancellationToken) =
+        if ct.IsCancellationRequested then
+            ()
+        else
+            match cameraIndexComboBox.SelectedItem |> Option.ofObj |> Option.defaultWith(fun () -> cameraIndexComboBox.Text) with
+            | :? int as i -> Some i
+            | :? string as s -> s |> String.trim |> tryParseInt
+            | _ -> None
+            |> Option.teeNone(fun _ ->
+                    eprintfn "Could not read comboBox1 value: '%A'" cameraIndexComboBox.SelectedValue
+            )
+            |> Option.bind(fun i -> cameraIndex.TrySetValue i |> Option.ofFalse)
+            |> Option.iter(fun _ ->
+                eprintfn "Failed to set camera index: '%A' - '%A'" cameraIndexComboBox.SelectedItem cameraIndexComboBox.SelectedText
+                if imControl.IsRunning || imControl.CameraState.Value <> CameraState.Stopped then
+                    // set the comboBox back to the value of the current camera index
+                    cameraIndexComboBox.Items
+                    |> Seq.cast<int>
+                    |> Seq.tryFindIndex(fun v -> v = cameraIndex.Value)
+                    |> function
+                        | Some i ->
+                            printfn "Setting combobox index to %i" i
+                            cleanPictureBox "onCameraIndexChangeRequest" null (pb,ct)
+                            cameraIndexComboBox.SelectedIndex <- i
+                        | None ->
+                            printfn "Changing combobox text to %i" cameraIndex.Value
+                            cameraIndexComboBox.SelectedValue <- cameraIndex.Value
+                            //comboBox1.SelectedText <- string cameraIndex.Value
+            )
 
     let hookUpCameraStateChanges(imControl:CameraControl, runButton:Button, snapButton:Button, cameraIndexComboBox: ComboBox) =
         imControl.CameraState.Subscribe(fun value ->

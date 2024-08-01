@@ -57,6 +57,8 @@ public sealed class TestWindowsCredentialProviderTile : ITestWindowsCredentialPr
     {
         Log.LogMethodCall();
 
+        _form1?.RequestCancellation();
+
         if (_form1?.VerificationResult != null)
         {
             var vr = _form1.VerificationResult;
