@@ -1,6 +1,7 @@
 ﻿namespace TestConsoleApp;
 
 using System;
+using System.Threading;
 
 using CredentialHelper.UI;
 
@@ -120,7 +121,7 @@ class Program
         Log.LogMethodCall();
         var devApiUrl = Form1.AppConfig.DevApi;
         var baseUrl = CredentialHelper.ApiClient.BaseUrl.TryCreate(devApiUrl).ResultValue;
-        var r = CredentialHelper.ApiClient.tryValidate(Form1.AppConfig, baseUrl, new CredentialHelper.ApiClient.AuthPost("1")).Result;
+        var r = CredentialHelper.ApiClient.tryValidate(Form1.AppConfig, baseUrl, new CredentialHelper.ApiClient.AuthPost("1"), ct: CancellationToken.None).Result;
         Console.WriteLine(r);
     }
 

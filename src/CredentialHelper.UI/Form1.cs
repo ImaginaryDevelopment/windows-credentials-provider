@@ -82,7 +82,7 @@ public partial class Form1 : Form, IDisposable
     
 #endif
 
-        worker = new(() => this.IsHandleCreated, cameraControl, qrManager, AppConfig, v => OnVerified(v), this.cts);
+        worker = new(() => new CompositionRoot.SystemState( this.IsHandleCreated, cameraControl.IsRunning), cameraControl, qrManager, AppConfig, v => OnVerified(v), this.cts);
 
     }
 
@@ -149,7 +149,13 @@ public partial class Form1 : Form, IDisposable
 
     async void snapButton_Click(object sender, EventArgs e)
     {
-        if (worker.IsRunning) return;
+
+        if (worker.IsRunning)
+        {
+            worker.Pause = true;
+            return;
+        }
+
         try
         {
             //this.pictureBox2.Image = this.pictureBox1.Image;
@@ -193,11 +199,11 @@ public partial class Form1 : Form, IDisposable
         }
     }
 
-    protected override void OnShown(EventArgs e)
-    {
-        worker?.Start();
-        base.OnShown(e);
-    }
+    //protected override void OnShown(EventArgs e)
+    //{
+    //    worker?.Start();
+    //    base.OnShown(e);
+    //}
 
     protected override void OnClosing(CancelEventArgs e)
     {

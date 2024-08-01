@@ -377,7 +377,7 @@ module UI =
             //showMsgBox qrResult
             //printfn "Yay we made it"
             if not ct.IsCancellationRequested then
-                let t = ApiClient.tryValidate config baseUrl { Code = qrResult}
+                let t = ApiClient.tryValidate config baseUrl ({ Code = qrResult}, ct)
                 t
                 |> Async.AwaitTask
                 |> Async.Catch

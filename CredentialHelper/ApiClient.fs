@@ -100,20 +100,26 @@ module HttpWReq =
         wr.ConnectionGroupName <- $"Thread-{System.Threading.Thread.CurrentThread.ManagedThreadId}"
         wr
 
-    let tryGetResultString (wReq:System.Net.HttpWebRequest) =
+    let tryGetResultString (wReq:System.Net.HttpWebRequest, ct: System.Threading.CancellationToken) =
         task {
+            ct.ThrowIfCancellationRequested()
             try
                 printfn "Fetching response"
                 use! wResp = wReq.GetResponseAsync().ConfigureAwait(false)
+                ct.ThrowIfCancellationRequested()
                 printfn "casting response"
                 let wResp = wResp :?> System.Net.HttpWebResponse
+                ct.ThrowIfCancellationRequested()
                 printfn "getting response stream"
                 use rs = wResp.GetResponseStream()
+                ct.ThrowIfCancellationRequested()
                 printfn "Getting stream reader"
                 use sr = new System.IO.StreamReader(rs)
+                ct.ThrowIfCancellationRequested()
                 printfn "reading to end"
                 let! rj = sr.ReadToEndAsync()
-                printfn "returning value"
+                ct.ThrowIfCancellationRequested()
+                printfn "returning value: '%A'" rj
                 return Ok rj
             with ex ->
                 printfn "erroring out"
@@ -122,11 +128,11 @@ module HttpWReq =
 
 open HttpWReq
 
-let tryPingServer config verifiedBase =
+let tryPingServer config verifiedBase ct =
     task {
         try
             let wReq = HttpWReq.createWReq config (verifiedBase, "/api/qr/ping") (WReqType.Get Map.empty)
-            let! rj = HttpWReq.tryGetResultString wReq
+            let! rj = HttpWReq.tryGetResultString (wReq,ct)
             match rj with
             | Ok rj ->
                 return Ok(rj = "PONG!")
@@ -139,12 +145,17 @@ type AuthPost = {
     Code: string
 }
 
-let tryValidate config verifiedBase (value: AuthPost) =
+let tryValidate config verifiedBase (value: AuthPost, ct: System.Threading.CancellationToken) =
     // api/qr/auth
     let t = 
-        task {
+        backgroundTask {
+            if ct.IsCancellationRequested then
+                return Error "Cancelled"
+            else
                 let wReq = HttpWReq.createWReq config (verifiedBase,"/api/qr/auth") WReqType.Post
+                ct.ThrowIfCancellationRequested()
                 use tw = new System.IO.StreamWriter(wReq.GetRequestStream()) :> System.IO.TextWriter
+                printfn "Serializing the value"
                 match Cereal.serialize value with
                 | Error e ->
                     let err = Error e
@@ -154,7 +165,8 @@ let tryValidate config verifiedBase (value: AuthPost) =
                     do! tw.WriteAsync(value)
                     do! tw.FlushAsync()
                     printfn "post flushed"
-                    let! result = HttpWReq.tryGetResultString wReq
+                    ct.ThrowIfCancellationRequested()
+                    let! result = HttpWReq.tryGetResultString (wReq, ct)
                     printfn "Got result string"
                     match result with
                     | Ok value ->
