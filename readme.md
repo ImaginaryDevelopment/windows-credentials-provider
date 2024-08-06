@@ -27,6 +27,13 @@ The projects are setup for x64 systems - you might need to change that if you wa
 
 When you run TestConsoleApp you should be able to see your provider under "more choices" (windows 10).
 
+Some limited testing is possible:
+
+- with the app manifest deleted
+- register com off (works better/more automatically with it on)
+    - creates entries in Computer\HKEY_CLASSES_ROOT\CLSID\{298D9F84-9BC5-435C-9FC2-EB3746625954}\InprocServer32
+        - CodeBase - "file:///C:/WindowsCredentialProviderTest/bin/Debug/WindowsCredentialProviderTest.dll)" for example
+
 ## What it can do
 
 It connects the logon procedure with alternative means to logon, like images from cameras, voices with microphone.

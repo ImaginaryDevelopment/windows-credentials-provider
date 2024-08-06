@@ -1,9 +1,9 @@
-1. Plugin-style loading/unloading - https://learn.microsoft.com/en-us/dotnet/standard/assembly/unloadability
-2. Cpu monitoring
-3. the reloading of the dll may be annoying with ring X not shutting down/restarting always  ( app domain aware singleton)
-4. the form is tied to the qr and api - accept delegate?
-5. com register toggle(and manifest) is annoying for local vs running in a vm differences
-6. scanner could pulse instead of user-initiated snap ( we aren't streaming the images, polling) - producer/consumer pairing
-7. see if we can enumerate cameras
-8. add a blurb about local development having register for com interop off, and app manifest deleted
-9. document Computer\HKEY_CLASSES_ROOT\CLSID\{298D9F84-9BC5-435C-9FC2-EB3746625954}\InprocServer32 (adds CodeBase REG_SZ: example value file:///Z:/WindowsCredentialProviderTest/bin/Debug/WindowsCredentialProviderTest.dll)
+1. Auto retries on TLS/SSL error
+2. Plugin-style loading/unloading - https://learn.microsoft.com/en-us/dotnet/standard/assembly/unloadability
+    - the reloading of the dll may be annoying with ring X not shutting down/restarting always  ( app domain aware singleton)
+3. Cpu monitoring
+4. com register toggle(and manifest) is annoying for local vs running in a vm differences
+5. scanner could pulse instead of user-initiated snap ( we aren't streaming the images, polling) - producer/consumer pairing
+6. see if we can enumerate cameras
+7. add a blurb about local development having register for com interop off, and app manifest deleted
+8. document Computer\HKEY_CLASSES_ROOT\CLSID\{298D9F84-9BC5-435C-9FC2-EB3746625954}\InprocServer32 (adds CodeBase REG_SZ: example value file:///Z:/WindowsCredentialProviderTest/bin/Debug/WindowsCredentialProviderTest.dll)
