@@ -374,6 +374,7 @@ public sealed class TestWindowsCredentialProviderTile : ITestWindowsCredentialPr
 
         return HResultValues.E_NOTIMPL;
     }
+
     static unsafe void _UnicodeStringPackedUnicodeStringCopy(UNICODE_STRING rus, byte* pwzBuffer, UNICODE_STRING* pus)
     {
         pus->Length = rus.Length;

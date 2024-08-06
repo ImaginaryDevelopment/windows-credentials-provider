@@ -35,7 +35,7 @@ public partial class Form1 : Form, IDisposable
 
     public ApiClient.VerificationResult? VerificationResult { get; set; }
 
-    public Form1(CancellationTokenSource cts = null)
+    public Form1(CancellationTokenSource? cts = null)
     {
         InitializeComponent();
 
@@ -67,7 +67,10 @@ public partial class Form1 : Form, IDisposable
 
         disposables.Add(("qrControl", cameraControl));
         disposables.Add(("combobox camerastate", CameraControl.UI.hookUpCameraStateChanges(cameraControl, runButton, snapButton, cameraIndexComboBox)));
-        disposables.Add(("cts", this.cts));
+        if (ctsIsOwn)
+        {
+            disposables.Add(("cts", this.cts));
+        }
         // there is a startup time to grabbing the camera and starting to display it on the screen
 
         // relies on capture camera invoking the setter above to kick off post-initializing work
