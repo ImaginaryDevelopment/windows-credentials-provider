@@ -183,11 +183,8 @@ let prefixes =
     |> Map.ofList
 
 let fixLocationInfo location =
-    match location with
-    | WhiteSpace _ | NonValueString -> None
-    //| After "l|" v -> Some v
-    //| After "c|" v -> Some v
-    | ValueString _ -> Some location
+    location
+    |> Option.ofValueString
     |> Option.map(function
         | After "file:///" v ->
             // fix, assuming windows

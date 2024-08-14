@@ -31,7 +31,7 @@ public partial class Form1 : Form, IDisposable
 
     readonly List<(string, IDisposable)> disposables = new();
 
-    public static AppSettings.AppConfig AppConfig => AppSettings.getConfiguration(Reusable.Cereal.deserializer, Reporter.Instance, null);
+    public static AppSettings.AppConfig AppConfig => AppSettings.getConfiguration(PackageAdapters.Cereal.deserializer, Reporter.Instance, null);
 
     public ApiClient.VerificationResult? VerificationResult { get; set; }
 
@@ -257,7 +257,7 @@ public class Reporter : Reusable.Reporter
     {
         try
         {
-            var v = Reusable.Cereal.serialize(value);
+            var v = PackageAdapters.Cereal.serialize(value);
             Console.WriteLine($"{text}:{v}");
         } catch
         {

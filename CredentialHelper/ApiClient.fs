@@ -2,6 +2,8 @@
 
 open Reusable
 
+open CredentialHelper.PackageAdapters
+
 open type System.String
 
 let private encode x = System.Net.WebUtility.UrlEncode(x)

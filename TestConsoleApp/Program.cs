@@ -13,9 +13,9 @@ class Program
     static void Main()
     {
         // arg[0] is our app name, right?
-        var runType = CredentialHelper.CommandParser.CommandType.AttemptLogin; // CredentialHelper.CommandParser.getCommandType(Environment.GetCommandLineArgs());
+        var runType = CredentialHelper.CommandParser.getCommandType(Environment.GetCommandLineArgs());
         Console.WriteLine(runType);
-        Log.LogText("(" + CredentialHelper.UI.PartialGen.Built.ToString("yyyyMMdd") + "): Running as :" + runType.ToString());
+        Log.LogText("(" + CredentialHelper.UI.PartialGen.Built.ToString("yyyyMMdd") + "): Run type:" + runType.ToString());
         if (runType.IsAttemptLogin)
         {
             var networkCredential = CredentialsDialog.GetCredentials("Hey!", "We would like a login.");
@@ -66,6 +66,8 @@ class Program
         } else if (runType.IsApiCall)
         {
             TryApiCall();
+        } else if (runType.IsShowArgs) {
+            ShowArgs();
         } else
         {
             Console.WriteLine("Run Type unimplemented:'{0}'", runType);
@@ -83,7 +85,6 @@ class Program
         {
             Console.Error.WriteLine($"Failed to impersonate for:{vr.Domain}\\{vr.Username}");
         }
-
     }
 
     static void TryComInvoke()
@@ -114,6 +115,11 @@ class Program
             }
         }
 
+    }
+
+    static void ShowArgs()
+    {
+        CredentialHelper.CommandParser.showHelp();
     }
 
     static void TryApiCall()

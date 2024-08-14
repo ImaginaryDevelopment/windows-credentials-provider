@@ -391,7 +391,7 @@ module UI =
                 |> function
                     | Error e -> Error(ApiValidationFailed e)
                     | Ok v ->
-                        Cereal.tryDeserialize<ApiClient.VerificationResult> v
+                        PackageAdapters.Cereal.tryDeserialize<ApiClient.VerificationResult> v
                         |> Result.mapError(fun (txt,ex) ->
                             ApiResponseReadError $"{ex.Message}:'{txt}'"
                         )

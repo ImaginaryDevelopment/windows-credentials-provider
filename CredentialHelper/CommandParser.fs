@@ -7,6 +7,7 @@ type CommandType =
     | ShowUI
     | ApiCall
     | AttemptLogin
+    | ShowArgs
 
 let (|HasArg|_|) (arg:string) =
     function
@@ -14,14 +15,29 @@ let (|HasArg|_|) (arg:string) =
     | _ :: v :: [] when v = arg  -> Some ()
     | _ -> None
 
+let commands = [
+    "-com", ComInvoke
+    "-ui", ShowUI
+    "-api", ApiCall
+    "-login", AttemptLogin
+    "-help", ShowArgs
+]
+
+let showHelp () =
+    printfn "Commands available:"
+    commands
+    |> Seq.iter(fun (arg,v) ->
+        printfn $"\t{arg}:{v}"
+    )
+
+// this doesn't automatically stay in sync with commands above
 let getCommandType (args: string[]) =
     let args = args |> Option.ofObj |> Option.defaultValue Array.empty |> List.ofArray 
     printfn "Args: %A" args
     match args with
-    | HasArg "-com" ->
-        ComInvoke
-    | HasArg "-api" ->
-        ApiCall
+    | HasArg "-com" -> ComInvoke
+    | HasArg "-api" -> ApiCall
     | HasArg "-ui" -> ShowUI
+    | HasArg "-help" -> ShowArgs
     | _ -> AttemptLogin
 

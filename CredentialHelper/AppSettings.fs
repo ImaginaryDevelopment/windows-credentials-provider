@@ -81,9 +81,8 @@ let getConfig (reporter:Reporter) (deserializer: IDeserializerR) pathOverride : 
 
     // account for a directory, a relative path, a nonvalue string
     match pathOverride with
-    | None | Some (NonValueString _) | Some (WhiteSpace _) ->
-        defaultFp
     | Some (ValueString fpo) -> fpo
+    | _ -> defaultFp
     |> tee(fun v -> reporter.Log $"Searching in '{v}' for a config")
     |> tryPath
     |> Option.bind(fun (ExistingFile efp) ->
@@ -105,7 +104,7 @@ let getConfig (reporter:Reporter) (deserializer: IDeserializerR) pathOverride : 
 
 // priority env > file > compiled defaults
 let getConfiguration deserializer reporter pathOverride =
-    let deserializer = Cereal.makeDeserializerR reporter deserializer
+    let deserializer = PackageAdapters.Cereal.makeDeserializerR reporter deserializer
 
     let inline tryGetEnvOrDefault deserializer defaultValue name =
         name |> Env.tryGetEnv |> Option.map deserializer |> Option.defaultValue defaultValue

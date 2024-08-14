@@ -63,11 +63,11 @@ module Option =
         | None -> None
         | Some y -> Some(x,y)
 
-let (|ValueString|WhiteSpace|NonValueString|) =
+let (|ValueString|WhiteSpace|NullString|EmptyString|) =
     function
-    | null -> NonValueString
+    | null -> NullString
     | x when not <| System.String.IsNullOrWhiteSpace x -> ValueString x
-    | x when System.String.IsNullOrEmpty x -> NonValueString
+    | x when System.String.IsNullOrEmpty x -> EmptyString
     | x -> WhiteSpace x
 
 type String with
@@ -82,9 +82,14 @@ type String with
     static member inline indexOfI delimiter text =
         String.makeIndexFunction (fun delimiter value -> value.IndexOf(delimiter, StringComparison.InvariantCultureIgnoreCase)) delimiter text
 
-    static member trim text =
+    static member inline trim text =
         Option.ofValueString text
         |> Option.map (fun text -> text.Trim())
+        |> Option.defaultValue text
+
+    static member inline trimc (char:Char) text =
+        Option.ofValueString text
+        |> Option.map(fun text -> text.Trim char)
         |> Option.defaultValue text
 
     static member endsWith delimiter text =
@@ -119,11 +124,13 @@ type String with
     static member replace delimiter replacement text =
         failNullOrEmpty (nameof delimiter) delimiter
         match text with
-        | NonValueString -> text
-        | _ -> text.Replace(delimiter, replacement)
+        | ValueString _ -> text.Replace(delimiter, replacement)
+        | _ -> text
 
     static member inline afterOrSelf delimiter text =
         String.tryAfter delimiter text |> Option.defaultValue text
+    static member inline beforeOrSelf delimiter text =
+        String.tryBefore delimiter text |> Option.defaultValue text
 
     static member makeEndWith delimiter text =
         if String.endsWith delimiter text then text
@@ -131,12 +138,12 @@ type String with
 
     static member toLower text =
         match text with
-        | NonValueString | WhiteSpace _ -> text
         | ValueString text -> text.ToLower()
+        | _ -> text
     static member toUpper text =
         match text with
-        | NonValueString | WhiteSpace _ -> text
         | ValueString text -> text.ToUpper()
+        | _ -> text
 
 let (|After|_|) delimiter text =
     text |> String.tryAfter delimiter
@@ -169,7 +176,9 @@ let inline fromParser f x =
     | true, v -> Some v
     | _, _ -> None
 
-let inline tryParseInt x = fromParser System.Int32.TryParse x
+let inline tryParseInt (x:string) : int option = x |> fromParser System.Int32.TryParse
+let inline tryParseGuid (x:string) : Guid option = x |> fromParser System.Guid.TryParse
+
 
 let inline createDisposable (onDispose: unit -> unit) =
     {new System.IDisposable with member x.Dispose() = onDispose()}
@@ -329,6 +338,16 @@ module Controls =
         let inline f () = (^t: (member set_Enabled: bool -> unit)(control,enabled))
         setInvokedIfNot control oldValue f enabled
 
+module Map =
+    let addListItem k v m =
+        match m |> Map.tryFind k with
+        | None -> m |> Map.add k [v]
+        | Some items -> m |> Map.add k (v::items)
+
+    let mapListLength m =
+        m
+        |> Map.map(fun _ -> List.length)
+
 module Async =
     open System.Runtime.CompilerServices
     open System.Threading
@@ -374,43 +393,6 @@ type IDeserializer =
 type IDeserializerR =
     abstract member Deserialize<'t>: string -> 't option
 
-module Cereal =
-    let deserialize<'t>(x:string) =
-        Newtonsoft.Json.JsonConvert.DeserializeObject<'t>(x)
-        //System.Text.Json.JsonSerializer.Deserialize<'t>(x)
-    let tryDeserialize<'t>(x: string) =
-        try
-            deserialize<'t>(x) |> Ok
-        with ex ->
-            Error(x,ex)
-
-    let serialize<'t>(x:'t) =
-        try
-            //System.Text.Json.JsonSerializer.Serialize x |> Ok
-            Newtonsoft.Json.JsonConvert.SerializeObject x |> Ok
-        with
-            | :? System.TypeInitializationException as te ->
-                match te.InnerException with
-                | null -> Error $"{te.Message}:{te.StackTrace}"
-                | ie -> Error $"TypeInitializerEx:{ie.Message}:{ie.StackTrace}";
-
-    let deserializer =
-        { new IDeserializer with
-            member _.Deserialize<'t>(value:string) =
-                let result = tryDeserialize<'t>(value)
-                result
-        }
-
-    // for swallows and things that are not important to watch for failures
-    let makeDeserializerR (reporter:Reporter) (deserializer:IDeserializer) =
-        { new IDeserializerR with
-            member _.Deserialize<'t>(value:string) =
-                match deserializer.Deserialize<'t> value with
-                | Ok v -> Some v
-                | Error (msg,exn) ->
-                    reporter.LogError(msg,exn)
-                    None
-        }
 
 let tryInvokes functions =
     functions
