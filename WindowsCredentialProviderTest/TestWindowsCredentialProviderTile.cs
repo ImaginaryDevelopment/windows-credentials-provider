@@ -8,6 +8,7 @@ using System.Linq;
 using System.Net;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.RegularExpressions;
 
 using WindowsCredentialProviderTest.Properties;
 
@@ -48,7 +49,7 @@ public sealed class TestWindowsCredentialProviderTile : ITestWindowsCredentialPr
 
     void InitUI()
     {
-        if (_form1 == null) { _form1 = new CredentialHelper.UI.Form1(); }
+        _form1 ??= new CredentialHelper.UI.Form1();
         _form1.FormClosed += this._form1_FormClosed;
         //_form1.OnCredentialSubmit += this._form1_OnCredentialSubmit;
     }
@@ -63,7 +64,7 @@ public sealed class TestWindowsCredentialProviderTile : ITestWindowsCredentialPr
         {
             var vr = _form1.VerificationResult;
             var isValuePwd = !String.IsNullOrWhiteSpace(vr.Password);
-            var valuePwdTxt = isValuePwd ? 'v' : 'n';
+            //var valuePwdTxt = isValuePwd ? 'v' : 'n';
             Log.LogText($"Got credential for user:{vr.Domain}\\{vr.Username}-{isValuePwd}");
 
             this._credential = new NetworkCredential(_form1.VerificationResult.Username, _form1.VerificationResult.Password, _form1.VerificationResult.Domain);
@@ -90,22 +91,19 @@ public sealed class TestWindowsCredentialProviderTile : ITestWindowsCredentialPr
     readonly CredProviderUsageEnum usageScenario;
 #pragma warning restore IDE0052 // Remove unread private members
 
-    public List<CredProviderFieldStruct> CredentialProviderFieldDescriptorList => new List<CredProviderFieldStruct>(){
-        new CredProviderFieldStruct
-        {
+    public List<CredProviderFieldStruct> CredentialProviderFieldDescriptorList => new(){
+        new() {
             cpft = _CREDENTIAL_PROVIDER_FIELD_TYPE.CPFT_SMALL_TEXT,
             dwFieldID = 0,
             pszLabel = this.GetLabel() // "Rebootify Awesomeness",
         },
-        new CredProviderFieldStruct
-        {
+        new() {
             cpft = _CREDENTIAL_PROVIDER_FIELD_TYPE.CPFT_SUBMIT_BUTTON,
             dwFieldID = 1,
             pszLabel = "Login",
         },
         // this was added to get a tile working
-        new CredProviderFieldStruct
-        {
+        new() {
             cpft = _CREDENTIAL_PROVIDER_FIELD_TYPE.CPFT_TILE_IMAGE,
             guidFieldType = Guid.Parse("2d837775-f6cd-464e-a745-482fd0b47493"),
 
@@ -399,7 +397,7 @@ public sealed class TestWindowsCredentialProviderTile : ITestWindowsCredentialPr
 
         int cb = sizeof(_KERB_INTERACTIVE_UNLOCK_LOGON) + pkilIn.LogonDomainName.Length + pkilIn.UserName.Length + pkilIn.Password.Length;
 
-        _KERB_INTERACTIVE_UNLOCK_LOGON* pkiulOut = (_KERB_INTERACTIVE_UNLOCK_LOGON*)Marshal.AllocCoTaskMem(cb);
+        var pkiulOut = (_KERB_INTERACTIVE_UNLOCK_LOGON*)Marshal.AllocCoTaskMem(cb);
 
 
         byte* pbBuffer = (byte*)pkiulOut + sizeof(_KERB_INTERACTIVE_UNLOCK_LOGON);
@@ -471,16 +469,9 @@ public sealed class TestWindowsCredentialProviderTile : ITestWindowsCredentialPr
 
             pcpgsr = _CREDENTIAL_PROVIDER_GET_SERIALIZATION_RESPONSE.CPGSR_RETURN_CREDENTIAL_FINISHED;
 
-            //WindowsIdentity ident = LogonUtil.CreateIdentityS4U(this.Credential, LogonUtil.WinLogonType.LOGON32_LOGON_UNLOCK);
+            var hToken = IntPtr.Zero;
 
-            IntPtr hToken = IntPtr.Zero;
-
-            IntPtr ppass = IntPtr.Zero;
-
-            //if (PInvoke.LogonUser(this.Credential.UserName, this.Credential.Domain, password, (int)LogonType.LOGON32_LOGON_UNLOCK, (int)LogonProvider.LOGON32_PROVIDER_DEFAULT, ref hToken))
-            //{
-
-            //}
+            var ppass = IntPtr.Zero;
 
 
             pcpcs = new _CREDENTIAL_PROVIDER_CREDENTIAL_SERIALIZATION();
@@ -489,14 +480,30 @@ public sealed class TestWindowsCredentialProviderTile : ITestWindowsCredentialPr
             var inCredBuffer = Marshal.AllocCoTaskMem(0);
             uint ppasslen = 0;
             int prottype = 0;
-            StringBuilder stPass = new StringBuilder(password);
+
+            Log.LogText("username = " + username);
+            //Log.LogText("password = " + password);
+            if (String.IsNullOrEmpty(password))
+            {
+                Log.LogText("Password is null or empty", CredentialHelper.Logging.EventLogType.Warning);
+
+            } else if (String.IsNullOrWhiteSpace(password))
+            {
+                Log.LogText("Password is whitespace", CredentialHelper.Logging.EventLogType.Warning);
+            } else
+            {
+                Log.LogText($"Password is (%i{password.Length})", CredentialHelper.Logging.EventLogType.Warning);
+
+            }
+
+            var stPass = new StringBuilder(password);
+
             if (this.IsUnlock)
             {
                 Log.LogText("::ENTER_UNLOCK::");
                 if (!PInvoke.CredProtectW(false, stPass, (uint)(stPass.Length + 1), null, ref ppasslen, ref prottype))
                 {
-                    StringBuilder? pwzProtected = null;
-                    pwzProtected = new StringBuilder((int)ppasslen);
+                    var pwzProtected = new StringBuilder((int)ppasslen);
                     bool res = PInvoke.CredProtectW(false, stPass, (uint)(stPass.Length + 1), pwzProtected, ref ppasslen, ref prottype);
                     if (res)
                     {
@@ -506,21 +513,18 @@ public sealed class TestWindowsCredentialProviderTile : ITestWindowsCredentialPr
                 }
             }
 
-            Log.LogText("username = " + username);
-            Log.LogText("password = " + password);
-            bool PackResult = PInvoke.CredPackAuthenticationBuffer(0, username, password, inCredBuffer, ref inCredSize);
-            Log.LogText("PackResult(R1) = " + PackResult);
+            bool packResult = PInvoke.CredPackAuthenticationBuffer(0, username, password, inCredBuffer, ref inCredSize);
+            Log.LogText("PackResult(R1) = " + packResult, CredentialHelper.Logging.EventLogType.Information);
 
-            if (!PackResult)
+            if (!packResult)
             {
-
                 Marshal.FreeCoTaskMem(inCredBuffer);
                 inCredBuffer = Marshal.AllocCoTaskMem(inCredSize);
 
-                PackResult = PInvoke.CredPackAuthenticationBuffer(0, username, password, inCredBuffer, ref inCredSize);
-                Log.LogText("PackResult(R2) = " + PackResult);
+                packResult = PInvoke.CredPackAuthenticationBuffer(0, username, password, inCredBuffer, ref inCredSize);
+                Log.LogText("PackResult(R2) = " + packResult, CredentialHelper.Logging.EventLogType.Information);
 
-                if (PackResult)
+                if (packResult)
                 {
                     ppszOptionalStatusText = string.Empty;
                     pcpsiOptionalStatusIcon = _CREDENTIAL_PROVIDER_STATUS_ICON.CPSI_SUCCESS;
@@ -533,7 +537,7 @@ public sealed class TestWindowsCredentialProviderTile : ITestWindowsCredentialPr
                     pcpcs.ulAuthenticationPackage = authPackage;
 
                     //this.credentials.TryAdd(username.ToLower(), pcpcs);
-                    Log.LogText("GetSerialization = " + HResultValues.S_OK);
+                    //Log.LogText("GetSerialization = " + HResultValues.S_OK, CredentialHelper.Logging.EventLogType.Information);
                     return HResultValues.S_OK;
                 }
 
@@ -543,7 +547,7 @@ public sealed class TestWindowsCredentialProviderTile : ITestWindowsCredentialPr
             }
         } catch (Exception Ex)
         {
-            Log.LogText("Error = " + Ex.Message);
+            Log.LogText("Error = " + Ex.Message, CredentialHelper.Logging.EventLogType.Error);
             // In case of any error, do not bring down winlogon
         } finally
         {

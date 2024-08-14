@@ -79,10 +79,10 @@ public partial class Form1 : Form, IDisposable
 #if DEBUG
         this.btnDiag.Click += this.BtnDiag_Click;
         this.Text += "-DEBUG";
+        this.txtQrValue.Text = "320016909";
 #else
         this.btnDiag.Visible = false;
         this.btnDiag.Enabled = false;
-    
 #endif
 
         worker = new(() => new CompositionRoot.SystemState( this.IsHandleCreated, cameraControl.IsRunning), cameraControl, qrManager, AppConfig, v => OnVerified(v), this.cts);

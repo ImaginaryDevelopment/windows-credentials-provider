@@ -69,7 +69,6 @@
             this.txtQrValue.Name = "txtQrValue";
             this.txtQrValue.Size = new System.Drawing.Size(100, 20);
             this.txtQrValue.TabIndex = 4;
-            this.txtQrValue.Text = "320016909";
             // 
             // btnLogin
             // 

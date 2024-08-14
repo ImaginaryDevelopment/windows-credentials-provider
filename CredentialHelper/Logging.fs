@@ -148,13 +148,28 @@ let tryf f args =
 
 let mutable startupLogged = false
 
-let asmOpt = lazy(
+let chAsmOpt = lazy(
     let t = typeof<Stub>
     ()
     |> tryf (fun () ->
         t.Assembly
     )
 )
+let tryGetAsm f : Lazy<System.Reflection.Assembly option>=
+    lazy(
+        tryf f ()
+    )
+
+let asms =
+    lazy (
+        [
+            "Entry",tryGetAsm System.Reflection.Assembly.GetEntryAssembly
+            "ChAsm",chAsmOpt
+            //"Exe", tryGetAsm System.Reflection.Assembly.GetCallingAssembly
+        ]
+        |> List.choose (Tuple2.mapSnd _.Value >> Option.ofSnd)
+    )
+
 type AsmFileLocationType =
     | Codebase
     | Location
@@ -211,24 +226,42 @@ let logStartup fla =
         let log (msg,elt) = tryLoggingsWithFallback' fla (msg,elt) |> ignore<Map<_,_>>
 
         log ("CD:" + System.Environment.CurrentDirectory, EventLogType.Information)
-        asmOpt.Value
-        |> Option.iter(fun asm ->
+
+        let tryLogStartupInfo title asm =
             asm
             |> tryGetLocation
             |> Option.iter(fun (p,l) ->
-                log (string p + "|" + l,EventLogType.SuccessAudit)
-                tryGetFileInfo l
-                |> Option.iter(fun fi ->
-                    [
-                        "LastWrite:"+ fi.LastWriteTime.ToString("o")
-                        "Created:" + fi.CreationTime.ToString("o")
-                    ]
-                    |> List.iter(fun msg ->
-                        log ( msg, EventLogType.SuccessAudit)
+                let fi =
+                    tryGetFileInfo l
+                    |> Option.map(fun fi ->
+                        [
+                            "LastWrite:"+ fi.LastWriteTime.ToString("o")
+                            "Created:" + fi.CreationTime.ToString("o")
+                        ]
                     )
-                )
+                    |> Option.defaultValue List.empty
+                let msg =
+                    [
+                        $"{title}|{p}|{l}"
+                        yield! fi
+                    ]
+                    |> String.concat System.Environment.NewLine
+                log (msg,EventLogType.SuccessAudit)
             )
-        )
+
+        // log assemblies
+        match asms.Value with
+        | [] -> log ("No Asms found", EventLogType.Error)
+        | asms ->
+            (List.empty,asms)
+            ||> List.fold(fun asmNames (title,asm) ->
+                if asmNames |> List.contains asm.FullName then
+                    asmNames
+                else
+                    tryLogStartupInfo title asm
+                    asm.FullName :: asmNames
+            )
+            |> ignore
 
 let tryLoggingsWithFallback fla (text,elt) =
     logStartup fla
