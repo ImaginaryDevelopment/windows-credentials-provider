@@ -62,7 +62,7 @@ https://github.com/MutonUfoAI/pgina/tree/master
 
 ## machine setup and registry changes (may not be needed)
 
-See also: https://stackoverflow.com/questions/3534600/what-does-register-for-com-interop-actually-do
+Don't forget you can check the fusion logging to see if something else is going on
 
 https://www.makeuseof.com/windows-11-missing-auto-login-fix/
     - HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\PasswordLess\Device -> DevicePasswordLessBuildVersion=0 (was 2)
@@ -72,3 +72,5 @@ https://www.tenforums.com/tutorials/118252-enable-disable-dont-display-username-
 https://www.guidingtech.com/disable-fast-startup-on-windows-11/
 https://learn.microsoft.com/en-us/troubleshoot/windows-client/user-profiles-and-logon/custom-credential-providers-dont-load-first-logon
 https://learn.microsoft.com/en-us/troubleshoot/windows-client/user-profiles-and-logon/facial-recognition-logon-not-work-group-policy-setting
+
+https://dennisbabkin.com/blog/?t=primer-on-writing-credential-provider-in-windows

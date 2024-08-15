@@ -170,50 +170,24 @@ let asms =
         |> List.choose (Tuple2.mapSnd _.Value >> Option.ofSnd)
     )
 
-type AsmFileLocationType =
-    | Codebase
-    | Location
-
-let prefixes =
-    [
-        Codebase, fun (asm:System.Reflection.Assembly) -> asm.CodeBase
-        Location, fun (asm:System.Reflection.Assembly) -> asm.Location
-    ]
-    |> List.map(fun (n,f) -> n, tryf f)
-    |> Map.ofList
-
-let fixLocationInfo location =
-    location
-    |> Option.ofValueString
-    |> Option.map(function
-        | After "file:///" v ->
-            // fix, assuming windows
-            if System.IO.Path.DirectorySeparatorChar = '\\' && v.Contains "/" then
-                v |> System.String.replace "/" "\\"
-            else v
-        | v -> v
-    )
-
-let tryGetLocation (asm:System.Reflection.Assembly) =
-    (None, prefixes)
-    ||> Map.fold(fun state prefix attemptF ->
-        match state with
-        | Some l -> Some l
-        | None ->
-            attemptF asm |> Option.bind fixLocationInfo |> Option.map (fun l -> prefix, l)
-    )
+//let prefixes =
+//    [
+//        Codebase, fun (asm:System.Reflection.Assembly) -> asm.CodeBase
+//        Location, fun (asm:System.Reflection.Assembly) -> asm.Location
+//    ]
+//    |> List.map(fun (n,f) -> n, tryf f)
+//    |> Map.ofList
 
 let tryGetFileInfo (location:string) =
     // codebase may produce this: file:///C:/Users/User/AppData/Local/Temp/LINQPad7/_dwololqc/query_kgvigc.dll
-    fixLocationInfo location
-    |> Option.bind (fun v ->
+    Reflection.fixLocationInfo location
+    |> fun v ->
         try
             System.IO.Path.GetFullPath v
             |> Some
         with ex ->
             eprintfn "Could not get value from location: '%s' - '%s'" ex.Message v
             None
-    )
     |> Option.filter File.Exists
     |> Option.bind( tryf (fun location -> System.IO.FileInfo location) )
 
@@ -226,10 +200,10 @@ let logStartup fla =
 
         let tryLogStartupInfo title asm =
             asm
-            |> tryGetLocation
-            |> Option.iter(fun (p,l) ->
+            |> Reflection.tryGetLocation
+            |> Option.iter(fun li ->
                 let fi =
-                    tryGetFileInfo l
+                    tryGetFileInfo li.Path
                     |> Option.map(fun fi ->
                         [
                             "LastWrite:"+ fi.LastWriteTime.ToString("o")
@@ -239,7 +213,7 @@ let logStartup fla =
                     |> Option.defaultValue List.empty
                 let msg =
                     [
-                        $"{title}|{p}|{l}"
+                        $"{title}|{li.LocationType}|{li.Path}"
                         yield! fi
                     ]
                     |> String.concat System.Environment.NewLine

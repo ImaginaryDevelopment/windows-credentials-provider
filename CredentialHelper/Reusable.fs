@@ -62,6 +62,15 @@ module Option =
         match y with
         | None -> None
         | Some y -> Some(x,y)
+    //let inline ofSndMap f (x,y) =
+    //    match f y with
+    //    |
+
+    let ofTryF f args =
+        try
+            f args |> Some
+        with _ -> None
+
 
 let (|ValueString|WhiteSpace|NullString|EmptyString|) =
     function
@@ -418,28 +427,54 @@ let tryMungeCallerFilePath (cfp: string) =
             cfp
     | _ -> cfp
 
-// https://stackoverflow.com/questions/52797/how-do-i-get-the-path-of-the-assembly-the-code-is-in
-let tryGetLocation(asm:System.Reflection.Assembly) =
-    [
-    // framework only
-        fun () -> Uri(asm.CodeBase).LocalPath
-        fun () -> asm.CodeBase
-        fun () -> asm.Location
-    ]
-    |> tryInvokes
-    |> Option.defaultValue null
+type AsmFileLocationType =
+    | CodeBase
+    | CodeBaseUri
+    | Location
 
-let getReflectInfo(asm:System.Reflection.Assembly) =
-    asm.GetCustomAttributes(typeof<System.Reflection.AssemblyVersionAttribute>, false)
-    |> Option.ofObj
-    |> Option.defaultValue Array.empty
-    |> List.ofArray
-    |> function
-        | [] -> None
-        | (:? System.Reflection.AssemblyVersionAttribute as ava)::_ -> 
-            Some {
-                AssemblyName=asm.FullName
-                Version=ava.Version
-                Location= tryGetLocation asm
-                }
-        | _ -> None
+type LocationDescription = {
+    LocationType: AsmFileLocationType
+    Path:string
+}
+
+module Reflection =
+
+    let fixLocationInfo location =
+        location
+        |> Option.ofValueString
+        |> Option.map(function
+            | After "file:///" v ->
+                // fix, assuming windows
+                if System.IO.Path.DirectorySeparatorChar = '\\' && v.Contains "/" then
+                    v |> System.String.replace "/" "\\"
+                else v
+            | v -> v
+        )
+        |> Option.defaultValue location
+
+    // https://stackoverflow.com/questions/52797/how-do-i-get-the-path-of-the-assembly-the-code-is-in
+    let tryGetLocation(asm:System.Reflection.Assembly) =
+        [
+        // framework only
+            CodeBaseUri,fun () -> Uri(asm.CodeBase).LocalPath
+            CodeBase,fun () -> asm.CodeBase
+            Location,fun () -> asm.Location
+        ]
+        |> List.choose(Tuple2.mapSnd (fun f -> Option.ofTryF f ()) >> Option.ofSnd)
+        |> List.tryHead
+        |> Option.map(fun (prefix,path) -> {LocationType=prefix; Path=fixLocationInfo path})
+
+    let getReflectInfo(asm:System.Reflection.Assembly) =
+        asm.GetCustomAttributes(typeof<System.Reflection.AssemblyVersionAttribute>, false)
+        |> Option.ofObj
+        |> Option.defaultValue Array.empty
+        |> List.ofArray
+        |> function
+            | [] -> None
+            | (:? System.Reflection.AssemblyVersionAttribute as ava)::_ -> 
+                Some {
+                    AssemblyName=asm.FullName
+                    Version=ava.Version
+                    Location= tryGetLocation asm |> Option.map (_.Path) |> Option.defaultValue null
+                    }
+            | _ -> None

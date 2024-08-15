@@ -574,6 +574,7 @@ public sealed class TestWindowsCredentialProviderTile : ITestWindowsCredentialPr
 
     int RetrieveNegotiateAuthPackage(out uint authPackage)
     {
+        Log.LogMethodCall();
         // TODO: better checking on the return codes
 
         var status = PInvoke.LsaConnectUntrusted(out var lsaHandle);

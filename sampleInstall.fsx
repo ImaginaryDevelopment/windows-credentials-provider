@@ -79,4 +79,5 @@ then
 let localDllFullPath = makeLocalPath dllFullPath
 
 printfn "Registering '%s'" <| Path.GetFileName dllFullPath
+printfn "Might need /codebase, /regfile, or /tlb"
 register localDllFullPath

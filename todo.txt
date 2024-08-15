@@ -7,3 +7,5 @@
 6. see if we can enumerate cameras
 7. add a blurb about local development having register for com interop off, and app manifest deleted
 8. document Computer\HKEY_CLASSES_ROOT\CLSID\{298D9F84-9BC5-435C-9FC2-EB3746625954}\InprocServer32 (adds CodeBase REG_SZ: example value file:///Z:/WindowsCredentialProviderTest/bin/Debug/WindowsCredentialProviderTest.dll)
+9. dsregcmd.exe /status
+10. get machine org access cert (by thumbprint?) from cert store

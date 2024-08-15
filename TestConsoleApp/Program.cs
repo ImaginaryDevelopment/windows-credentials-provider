@@ -68,6 +68,8 @@ class Program
             TryApiCall();
         } else if (runType.IsShowArgs) {
             ShowArgs();
+        } else if (runType.IsOutputDiagnostics) {
+            CredentialHelper.CommandParser.outputDiagnostics(Guid.Parse(Constants.CredentialProviderUID));
         } else
         {
             Console.WriteLine("Run Type unimplemented:'{0}'", runType);
