@@ -53,6 +53,10 @@ let createVerifyQrCodeDelegate: _ -> CredentialDelegateType =
     fun config ->
         verifyQrCode config
 
+let outputDiagnostics (dllComGuid) =
+    RegistryAdapters.Diag.outputDiagnostics(dllComGuid)
+
+
 type WorkerState =
     | NotStarted
     | Started

@@ -13,7 +13,13 @@ class Program
     static void Main()
     {
         // arg[0] is our app name, right?
-        var runType = CredentialHelper.CommandParser.getCommandType(Environment.GetCommandLineArgs());
+        var runType =
+            #if DEBUG
+                CredentialHelper.CommandParser.CommandType.ShowUI;
+            #else
+                CredentialHelper.CommandParser.getCommandType(Environment.GetCommandLineArgs());
+            #endif
+
         Console.WriteLine(runType);
         Log.LogText("(" + CredentialHelper.UI.PartialGen.Built.ToString("yyyyMMdd") + "): Run type:" + runType.ToString());
         if (runType.IsAttemptLogin)
@@ -69,7 +75,7 @@ class Program
         } else if (runType.IsShowArgs) {
             ShowArgs();
         } else if (runType.IsOutputDiagnostics) {
-            CredentialHelper.CommandParser.outputDiagnostics(Guid.Parse(Constants.CredentialProviderUID));
+            CredentialHelper.CompositionRoot.outputDiagnostics(Guid.Parse(Constants.CredentialProviderUID));
         } else
         {
             Console.WriteLine("Run Type unimplemented:'{0}'", runType);
@@ -88,8 +94,7 @@ class Program
             Console.Error.WriteLine($"Failed to impersonate for:{vr.Domain}\\{vr.Username}");
         }
     }
-
-    static void TryComInvoke()
+    static void TryComTestCredProviderInvoke()
     {
         var g = System.Guid.Parse(WindowsCredentialProviderTest.Constants.CredentialProviderUID);
         var tnr = new CredentialHelper.ComHelper.TypeNameReference(nameof(WindowsCredentialProviderTest), nameof(WindowsCredentialProviderTest.TestWindowsCredentialProvider));
@@ -116,7 +121,15 @@ class Program
                 Console.Error.WriteLine(name + ": unknown - " + r);
             }
         }
+    }
+    static void TryComFilterInvoke()
+    {
+        
+        }
 
+    static void TryComInvoke()
+    {
+        TryComTestCredProviderInvoke();
     }
 
     static void ShowArgs()

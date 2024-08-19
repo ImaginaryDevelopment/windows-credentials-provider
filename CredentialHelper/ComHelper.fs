@@ -14,7 +14,7 @@ type CreateArgs =
     | CreateByProgId of string
 
 //System.Activator.GetObject()
-let tryCreateCom =
+let createCom =
     function
     | CreateByGuid guid ->
         let t = System.Type.GetTypeFromCLSID guid
@@ -29,16 +29,30 @@ let tryCreateCom =
         |> Option.map System.Activator.CreateInstance
         |> Option.defaultValue null
 
-let tryAllCom (guid, tnr, t, progId) (f:System.Func<obj,_>) =
+let tryComCreateByGuid guid =
+    try
+        createCom (CreateByGuid guid)
+        |> Ok
+    with ex -> Error ($"{tryGetTypeName ex}:%s{ex.Message}")
+
+let tryAllCom (guid, tnrOpt, t, progIdOpt) (f:System.Func<obj,_>) =
     [
         "CreateByGuid", CreateByGuid guid
-        "CreateByStringRef", CreateByStringRef tnr
+        match tnrOpt with
+        | Some tnr ->
+            "CreateByStringRef", CreateByStringRef tnr
+        | None -> ()
+
         "CreateByType", CreateByType t
-        "CreateByProgId", CreateByProgId progId
+        match progIdOpt with
+        | None -> ()
+        | Some (ValueString progId) ->
+            "CreateByProgId", CreateByProgId progId
+        | _ -> ()
     ]
     |> Seq.map (Tuple2.mapSnd (fun x ->
         try
-            let v = tryCreateCom x
+            let v = createCom x
             match v with
             | null -> Error "null value returned"
             | _ -> f.Invoke v |> Ok
@@ -46,3 +60,27 @@ let tryAllCom (guid, tnr, t, progId) (f:System.Func<obj,_>) =
             eprintfn "Exception: %s" (ex.GetType().Name)
             Error ex.Message
     ))
+
+let tryGetCredProvFilter() =
+    let root = Microsoft.Win32.Registry.LocalMachine
+    let path = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Authentication\Credential Provider Filters"
+    let tryGetAllCom guid =
+        let value =
+            tryAllCom(guid,None,typeof<CredentialProvider.Interop.ICredentialProviderFilter>,None) (System.Func<_,_>(function | :? CredentialProvider.Interop.ICredentialProviderFilter as icpf -> Some icpf | _ -> eprintfn "Hello casting fail"; None))
+        value |> Some
+
+    RegistryAdapters.Registry.withKey root path (fun sk ->
+        sk.GetSubKeyNames()
+        |> Seq.choose tryParseGuid
+        |> List.ofSeq
+        |> Ok
+    )
+    |> fun x -> x
+    |> function
+        | Error e -> eprintfn "%s" e; None
+        | Ok [] -> eprintfn "No credential provider filters found in %s\\%s" root.Name path; None
+        | Ok (h::[]) ->
+            tryGetAllCom h
+        | Ok (h:: rst) ->
+            printfn "Found multiple credential filters(%i)" (rst.Length + 1)
+            tryGetAllCom h

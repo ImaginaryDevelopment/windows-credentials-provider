@@ -20,8 +20,9 @@ public partial class Form1 : Form, IDisposable
     readonly CredentialHelper.QRCode.QrManager qrManager = new();
     readonly bool ctsIsOwn;
     readonly CancellationTokenSource cts;
-    // TODO: rename once translation is complete
+
     readonly CredentialHelper.CameraControl.CameraControl cameraControl;
+    readonly Action<string, Microsoft.FSharp.Core.FSharpOption<Reusable.EventLogType>> logger;
 
     readonly CredentialHelper.CameraControl.ProtectedValue<int> cameraIndex;
 
@@ -38,6 +39,7 @@ public partial class Form1 : Form, IDisposable
     public Form1(Action<string,Microsoft.FSharp.Core.FSharpOption<Reusable.EventLogType>> logger, CancellationTokenSource? cts = null)
     {
         InitializeComponent();
+        this.logger = logger;
 
         if (cts == null)
         {
@@ -90,6 +92,10 @@ public partial class Form1 : Form, IDisposable
     }
 
     public void RequestCancellation() => InitiateCancel();
+
+    public bool IsCancellationRequested => this.cts.IsCancellationRequested;
+    public bool IsDisposeRequested { get;private set; }
+
 
 #if DEBUG
     void BtnDiag_Click(object sender, EventArgs e)
@@ -226,6 +232,11 @@ public partial class Form1 : Form, IDisposable
     /// <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
     protected override void Dispose(bool disposing)
     {
+        try
+        {
+            logger($"Disposing form(disp:{disposing}-isDisp:{IsDisposeRequested}-isCncl:{this.IsCancellationRequested})", null);
+        } catch { }
+        IsDisposeRequested = true;
         if (disposing && (components != null))
         {
             components.Dispose();
@@ -244,6 +255,7 @@ public partial class Form1 : Form, IDisposable
         base.Dispose(disposing);
     }
 }
+
 public class Reporter : Reusable.Reporter
 {
     static Reporter instance = new();

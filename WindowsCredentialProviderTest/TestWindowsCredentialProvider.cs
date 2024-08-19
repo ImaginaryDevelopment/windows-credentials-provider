@@ -78,6 +78,7 @@
 
             if (CredentialProviderEvents != null)
             {
+                Log.LogText("Unadvise called with CredentialProviderEvents");
                 var intPtr = Marshal.GetIUnknownForObject(CredentialProviderEvents);
                 Marshal.Release(intPtr);
                 CredentialProviderEvents = null;

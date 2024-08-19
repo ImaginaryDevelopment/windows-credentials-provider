@@ -71,6 +71,8 @@ module Option =
             f args |> Some
         with _ -> None
 
+let (|NonValueString|ValueString'|) text =
+    if String.IsNullOrWhiteSpace text then NonValueString else ValueString'(text)
 
 let (|ValueString|WhiteSpace|NullString|EmptyString|) =
     function
@@ -100,6 +102,12 @@ type String with
         Option.ofValueString text
         |> Option.map(fun text -> text.Trim char)
         |> Option.defaultValue text
+
+    static member startsWith delimiter text =
+        failNullOrEmpty (nameof delimiter) delimiter
+        Option.ofValueString text
+        |> Option.map(fun text -> text.StartsWith delimiter)
+        |> Option.defaultValue false
 
     static member endsWith delimiter text =
         failNullOrEmpty (nameof delimiter) delimiter
@@ -157,8 +165,14 @@ type String with
 let (|After|_|) delimiter text =
     text |> String.tryAfter delimiter
 
+let (|Trim|) text =
+    text |> String.trim
+
 let (|Before|_|) delimiter text =
     text |> String.tryBefore delimiter
+
+let (|StartsWith|_|) delimiter text =
+    if text |> String.startsWith delimiter then Some () else None
 
 // String Contains Case Sensitive
 let (|ContainsS|_|) delimiter =

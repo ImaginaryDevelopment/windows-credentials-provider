@@ -49,8 +49,14 @@ public sealed class TestWindowsCredentialProviderTile : ITestWindowsCredentialPr
 
     void InitUI()
     {
-        _form1 ??= new CredentialHelper.UI.Form1((txt,ll) => Log.LogText(txt,ll));
-        _form1.FormClosed += this._form1_FormClosed;
+        Action<string,Microsoft.FSharp.Core.FSharpOption<Reusable.EventLogType>> logger = (txt, ll) => Log.LogText(txt, ll);
+        // none of these states are ok to reuse
+        if(_form1 == null || _form1.IsCancellationRequested || _form1.IsDisposed || _form1.IsDisposeRequested)
+        {
+            _form1?.Dispose();
+            _form1 = new CredentialHelper.UI.Form1(logger);
+            _form1.FormClosed += this._form1_FormClosed;
+        }
         //_form1.OnCredentialSubmit += this._form1_OnCredentialSubmit;
     }
 
@@ -71,6 +77,7 @@ public sealed class TestWindowsCredentialProviderTile : ITestWindowsCredentialPr
             this.testWindowsCredentialProvider.CredentialProviderEvents?.CredentialsChanged(this.testWindowsCredentialProvider.AdviseContext);
 
         }
+        // this will clear form1
         onDeselected("form closed");
     }
 
@@ -126,6 +133,7 @@ public sealed class TestWindowsCredentialProviderTile : ITestWindowsCredentialPr
         return HResultValues.S_OK;
     }
 
+    // this may be getting called on startup
     int ICredentialProviderCredential.UnAdvise()
     {
         Log.LogMethodCall();
@@ -163,6 +171,7 @@ public sealed class TestWindowsCredentialProviderTile : ITestWindowsCredentialPr
                 return HResultValues.S_OK;
             } catch (ObjectDisposedException)
             {
+
                 this._credential = null;
                 this._form1 = null;
                 InitUI();
@@ -170,7 +179,6 @@ public sealed class TestWindowsCredentialProviderTile : ITestWindowsCredentialPr
                 pbAutoLogon = 0;
                 return HResultValues.S_OK;
             }
-
         }
     }
 
@@ -210,7 +218,6 @@ public sealed class TestWindowsCredentialProviderTile : ITestWindowsCredentialPr
     {
         Log.LogMethodCall();
         return onDeselected("SetDeselected");
-
     }
 
     public int GetFieldState(uint dwFieldID, out _CREDENTIAL_PROVIDER_FIELD_STATE pcpfs,

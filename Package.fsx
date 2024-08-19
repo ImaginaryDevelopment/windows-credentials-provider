@@ -4,7 +4,7 @@
 open System
 open Reusable
 
-let overwriteZip = true
+let overwriteZip = false
 
 let inline formatRelPath path =
     match path with
@@ -107,6 +107,7 @@ let targetZipFullPath =
     |> function
         | None -> "Could not find a valid output fn"
         | Some fn -> fn
+
 // generate build info, validate file extensions
 (
     let inputMap =
@@ -132,7 +133,6 @@ let targetZipFullPath =
         if count < minCount then
             failwith $"Expected %i{minCount} or more .{extension}"
     )
-
 
     let inputMapLengths =
         inputMap
