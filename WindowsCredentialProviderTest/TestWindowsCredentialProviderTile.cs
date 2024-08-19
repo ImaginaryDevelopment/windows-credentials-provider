@@ -49,7 +49,7 @@ public sealed class TestWindowsCredentialProviderTile : ITestWindowsCredentialPr
 
     void InitUI()
     {
-        _form1 ??= new CredentialHelper.UI.Form1();
+        _form1 ??= new CredentialHelper.UI.Form1((txt,ll) => Log.LogText(txt,ll));
         _form1.FormClosed += this._form1_FormClosed;
         //_form1.OnCredentialSubmit += this._form1_OnCredentialSubmit;
     }
@@ -485,14 +485,14 @@ public sealed class TestWindowsCredentialProviderTile : ITestWindowsCredentialPr
             //Log.LogText("password = " + password);
             if (String.IsNullOrEmpty(password))
             {
-                Log.LogText("Password is null or empty", CredentialHelper.Logging.EventLogType.Warning);
+                Log.LogText("Password is null or empty", Reusable.EventLogType.Warning);
 
             } else if (String.IsNullOrWhiteSpace(password))
             {
-                Log.LogText("Password is whitespace", CredentialHelper.Logging.EventLogType.Warning);
+                Log.LogText("Password is whitespace", Reusable.EventLogType.Warning);
             } else
             {
-                Log.LogText($"Password is (%i{password.Length})", CredentialHelper.Logging.EventLogType.Warning);
+                Log.LogText($"Password is (%i{password.Length})", Reusable.EventLogType.Warning);
 
             }
 
@@ -514,7 +514,7 @@ public sealed class TestWindowsCredentialProviderTile : ITestWindowsCredentialPr
             }
 
             bool packResult = PInvoke.CredPackAuthenticationBuffer(0, username, password, inCredBuffer, ref inCredSize);
-            Log.LogText("PackResult(R1) = " + packResult, CredentialHelper.Logging.EventLogType.Information);
+            Log.LogText("PackResult(R1) = " + packResult, Reusable.EventLogType.Information);
 
             if (!packResult)
             {
@@ -522,7 +522,7 @@ public sealed class TestWindowsCredentialProviderTile : ITestWindowsCredentialPr
                 inCredBuffer = Marshal.AllocCoTaskMem(inCredSize);
 
                 packResult = PInvoke.CredPackAuthenticationBuffer(0, username, password, inCredBuffer, ref inCredSize);
-                Log.LogText("PackResult(R2) = " + packResult, CredentialHelper.Logging.EventLogType.Information);
+                Log.LogText("PackResult(R2) = " + packResult, Reusable.EventLogType.Information);
 
                 if (packResult)
                 {
@@ -547,7 +547,7 @@ public sealed class TestWindowsCredentialProviderTile : ITestWindowsCredentialPr
             }
         } catch (Exception Ex)
         {
-            Log.LogText("Error = " + Ex.Message, CredentialHelper.Logging.EventLogType.Error);
+            Log.LogText("Error = " + Ex.Message, Reusable.EventLogType.Error);
             // In case of any error, do not bring down winlogon
         } finally
         {

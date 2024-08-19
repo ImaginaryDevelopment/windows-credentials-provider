@@ -43,7 +43,7 @@ class Program
         } else if (runType.IsShowUI)
         {
             CredentialHelper.ApiClient.VerificationResult? vr = null;
-            using (var form1 = new CredentialHelper.UI.Form1())
+            using (var form1 = new CredentialHelper.UI.Form1((txt,ll) => Log.LogText(txt,ll)))
             {
                 if (form1.InvokeRequired)
                 {
@@ -82,7 +82,7 @@ class Program
     static void RunImpersonation(CredentialHelper.ApiClient.VerificationResult vr)
     {
         Log.LogText("Attempting impersonation");
-        var impSuccess = ImpersonationHelper.RunImpersonated(vr, () => Log.LogText("Impersonation running", CredentialHelper.Logging.EventLogType.Warning));
+        var impSuccess = ImpersonationHelper.RunImpersonated(vr, () => Log.LogText("Impersonation running", Reusable.EventLogType.Warning));
         if (!impSuccess)
         {
             Console.Error.WriteLine($"Failed to impersonate for:{vr.Domain}\\{vr.Username}");

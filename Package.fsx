@@ -167,4 +167,5 @@ let targetZipFullPath =
         System.IO.File.WriteAllLines(buildInfoPath, lines)
 )
 
+printfn "zipping '%s' into '%s'" releasePath targetZipFullPath
 System.IO.Compression.ZipFile.CreateFromDirectory(releasePath, targetZipFullPath)

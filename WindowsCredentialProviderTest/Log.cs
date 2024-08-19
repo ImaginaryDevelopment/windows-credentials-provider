@@ -6,18 +6,29 @@
     using System.Linq;
     using System.Runtime.CompilerServices;
 
+    using static Reusable;
     using CredentialHelper;
 
     public static class Log
     {
-        public static void LogTextWithCaller(string text, Logging.EventLogType elt = null, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerName = "")
+        public static void LogTextWithCaller(string text, EventLogType elt = null, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerName = "")
         {
             var cfp = Reusable.tryMungeCallerFilePath(callerFilePath);
             // try getting just the file name
             LogText($"{text}: {callerName}:{cfp}");
         }
+        public static void LogText(string text, Microsoft.FSharp.Core.FSharpOption<EventLogType> eltOpt)
+        {
+            if(eltOpt?.Value is { } elt)
+            {
+                LogText(text, elt);
+            } else
+            {
+                LogText(text);
+            }
+        }
 
-        public static void LogText(string text, Logging.EventLogType elt = null)
+        public static void LogText(string text, EventLogType elt = null)
         {
             var logFileNames = new[]
             {
@@ -25,7 +36,7 @@
                 // we should try to cd to codebase maybe?
                 "CredentialProviderLog.log.txt"
             }.toList();
-            var elt2 = elt ?? Logging.EventLogType.Warning;
+            var elt2 = elt ?? EventLogType.Warning;
 
             var fla = new CredentialHelper.Logging.FullLoggingArgs("WindowsCredentialProviderTest", CredentialHelper.Logging.LogListAttemptType.TryAll, logFileNames);
             CredentialHelper.Logging.tryLoggingsWithFallback(fla, text, elt2);
@@ -44,7 +55,7 @@
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        public static void LogMethodCall(Logging.EventLogType elt = null, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerName = "")
+        public static void LogMethodCall(EventLogType elt = null, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerName = "")
         {
             if (callerName.IsNullOrEmpty())
             {
@@ -56,7 +67,7 @@
                 callerName = methodBase.DeclaringType?.Name + "::" + methodBase.Name;
             } else callerName = callerFilePath.IsNullOrEmpty() ? callerName : callerFilePath + ":" + callerName;
 
-            LogText(callerName, elt ?? Logging.EventLogType.Information);
+            LogText(callerName, elt ?? EventLogType.Information);
         }
     }
 }

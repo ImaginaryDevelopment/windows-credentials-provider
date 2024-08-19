@@ -411,6 +411,27 @@ let tryInvokes functions =
         with _ -> None
     )
     |> List.tryHead
+type OutputType =
+    | StdOut
+    | StdError
+
+module Process =
+
+    let executeProcessCaptured (exe:string) (args:string) listener =
+        let psi = System.Diagnostics.ProcessStartInfo(exe,args,UseShellExecute=false, RedirectStandardOutput=true, RedirectStandardError=true,CreateNoWindow=true)
+        let p = System.Diagnostics.Process.Start(psi)
+        p.OutputDataReceived.Add(fun args -> listener(StdOut,args.Data))
+        p.ErrorDataReceived.Add(fun args -> listener(StdError, args.Data))
+        p.BeginErrorReadLine()
+        p.BeginOutputReadLine()
+        p.WaitForExit()
+        p.ExitCode
+
+    let executeProcessHarnessed exe args =
+        let outs = System.Collections.Concurrent.ConcurrentQueue()
+        let addOut x = outs.Enqueue(x)
+        let ec = executeProcessCaptured exe args addOut
+        ec,outs |> Seq.toList
 
 type ReflectionInfo = {
     AssemblyName: string
@@ -436,7 +457,7 @@ type LocationDescription = {
     LocationType: AsmFileLocationType
     Path:string
 }
-
+    
 module Reflection =
 
     let fixLocationInfo location =
@@ -478,3 +499,15 @@ module Reflection =
                     Location= tryGetLocation asm |> Option.map (_.Path) |> Option.defaultValue null
                     }
             | _ -> None
+
+[<RequireQualifiedAccess>]
+type EventLogType =
+    | Error // 1
+    | Warning // 2
+    | Information // 4
+    | SuccessAudit // 8
+    | FailureAudit // 16
+
+//public static void LogText(string text, Logging.EventLogType elt = null)
+type LogDelegate = Action<string,EventLogType option>
+

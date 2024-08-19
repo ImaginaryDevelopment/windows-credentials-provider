@@ -14,14 +14,6 @@ open System.Collections.Generic
 
 type private Stub = class end 
 
-[<RequireQualifiedAccess>]
-type EventLogType =
-    | Error // 1
-    | Warning // 2
-    | Information // 4
-    | SuccessAudit // 8
-    | FailureAudit // 16
-
 let inline private mapEventLogType elt =
     match elt with
     | EventLogType.Information -> EventLogEntryType.Information
@@ -29,7 +21,7 @@ let inline private mapEventLogType elt =
     | EventLogType.FailureAudit -> EventLogEntryType.FailureAudit
     | EventLogType.SuccessAudit -> EventLogEntryType.SuccessAudit
     | EventLogType.Warning -> EventLogEntryType.Warning
-    
+
 let tryLogFile fn (text:string,elt) =
     if System.String.IsNullOrWhiteSpace fn then
         Error "Bad logging filename"

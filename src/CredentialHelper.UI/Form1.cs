@@ -35,7 +35,7 @@ public partial class Form1 : Form, IDisposable
 
     public ApiClient.VerificationResult? VerificationResult { get; set; }
 
-    public Form1(CancellationTokenSource? cts = null)
+    public Form1(Action<string,Microsoft.FSharp.Core.FSharpOption<Reusable.EventLogType>> logger, CancellationTokenSource? cts = null)
     {
         InitializeComponent();
 
@@ -49,7 +49,7 @@ public partial class Form1 : Form, IDisposable
         }
         this.cts = cts ?? throw new InvalidOperationException("cts must be set");
 
-        cameraControl = CameraControl.UI.createCameraControl(this.pictureBox1, this.cts.Token);
+        cameraControl = CameraControl.UI.createCameraControl(this.pictureBox1,() => 100, logger, this.cts.Token);
         Func<bool> pvDelegate = () => CredentialHelper.CameraControl.CameraState.Stopped.Equals(cameraControl.CameraState.Value)
             && !cameraControl.IsRunning;
         //switch (imControl.CameraState.Value)

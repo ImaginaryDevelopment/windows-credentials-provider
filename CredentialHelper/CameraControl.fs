@@ -129,7 +129,7 @@ type CaptureWrapper () =
     interface IDisposable with
         member this.Dispose() = this.Dispose()
 
-type CameraControl(imageProp: Property<Image>) =
+type CameraControl(imageProp: Property<Image>, sleepFetchOpt: unit -> int option, logger: LogDelegate) =
 
     let captureWrapper = new CaptureWrapper()
     // hold onto image so it can be disposed
@@ -155,7 +155,9 @@ type CameraControl(imageProp: Property<Image>) =
                     cameraState.Value <- Initializing
                     // should we reuse this one?
                     if not <| captureWrapper.TryStart index then
-                        eprintfn "captureWrapper failed to start"
+                        let msg = $"captureWrapper failed to start on %i{index}" 
+                        eprintfn "%s" msg
+                        logger.Invoke(msg, Some EventLogType.Error)
                     else
                         while not ct.IsCancellationRequested && cameraState.Value <> Stopped do
                             match frame with
@@ -171,7 +173,9 @@ type CameraControl(imageProp: Property<Image>) =
                             |> fun frame -> frame.TryGet()
                             |> Option.iter (fun frame ->
                                 if not <| captureWrapper.Read frame then
-                                    eprintfn "Camera read failed: '%A'" cameraState.Value
+                                    let msg = $"Camera read failed: '%A{cameraState.Value}'" 
+                                    eprintfn "%s" msg
+                                    logger.Invoke(msg, Some EventLogType.FailureAudit)
                                 else
                                 cameraState.Value <- Started
                                 // get the old image to dispose later
@@ -189,6 +193,9 @@ type CameraControl(imageProp: Property<Image>) =
                                         image.Dispose("cameraCaptureCallback")
                                 )
                             )
+                            match sleepFetchOpt() with
+                            | None -> ()
+                            | Some sleep -> System.Threading.Thread.Sleep(sleep)
                         ()
 
             match cameraThread with
@@ -313,7 +320,7 @@ module UI =
         )
 
 
-    let createCameraControl (pb:PictureBox, ct: System.Threading.CancellationToken) =
+    let createCameraControl (pb:PictureBox, sleepFetchOpt: Func<int option>, logger:LogDelegate, ct: System.Threading.CancellationToken) =
         let mutable cc : CameraControl option = None
         let setter v =
             if ct.IsCancellationRequested then
@@ -321,7 +328,10 @@ module UI =
             else
                 cc
                 |> function
-                    | None -> eprintfn "Setter called without camera control"
+                    | None ->
+                        let msg = "Setter called without camera control"
+                        eprintfn "%s" msg
+                        logger.Invoke(msg, Some EventLogType.Error)
                     | Some cc ->
                         if cc.CameraState.Value = CameraState.Started then
                             onceInitialized
@@ -342,7 +352,7 @@ module UI =
                 pb |> ensureInvoke f |> ignore<obj>
                 image
 
-        let imControl = new CameraControl({Getter=getter; Setter= setter})
+        let imControl = new CameraControl({Getter=getter; Setter= setter}, (fun () ->  sleepFetchOpt.Invoke()), logger )
         cc <- Some imControl
         imControl
 
