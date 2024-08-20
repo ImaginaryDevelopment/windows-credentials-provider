@@ -13,6 +13,7 @@ namespace CredentialHelper.SourceGen;
 [Generator]
 public class Class1 : ISourceGenerator // IIncrementalGenerator //  
 {
+    const string Namespace = "CredentialHelper.SourceGenerated";
     string[] TimestampFile = new string[]
                         {@"using System;",
                  @"// The namespace can be overidden by the /N option:",
@@ -48,17 +49,22 @@ public class Class1 : ISourceGenerator // IIncrementalGenerator //
                  @"        public static string TimeStampedBy { get { return @""???""; } } //--**",
                  @"        }",
                  @"    }" };
-    public void GenerateIt(Action<string, SourceText> addSource) {
+    public void GenerateIt(Action<string, SourceText> addSource)
+    {
+        var lastCommitHash = Helpers.GetLastCommitHash();
         var now = System.DateTime.Now.Ticks;
         //var now2 = new System.DateTime(now);
-            var sourceText = $$"""
-                namespace CredentialHelper.UI;
+        var sourceText = $$"""
+                namespace {namespace};
                 public static class BuildInfo {
                     public static System.DateTime Built => new System.DateTime({now});
+                    public static string LastCommitHash => "{lastCommitHash}";
                 }
-                """.Replace("{now}", now.ToString());
-            addSource("AssemblyInfo2.cs", SourceText.From(sourceText, Encoding.UTF8));
-        }
+                """.Replace("{now}", now.ToString()).Replace("{lastCommitHash}", lastCommitHash).Replace("{namespace}", Namespace);
+        addSource("AssemblyInfo2.cs", SourceText.From(sourceText, Encoding.UTF8));
+    }
+
+
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
 

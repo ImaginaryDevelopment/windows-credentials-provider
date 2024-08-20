@@ -1,6 +1,6 @@
 ﻿module CredentialHelper.ComHelper
 
-open Reusable
+open BReusable
 
 type TypeNameReference = {
     AssemblyName:string
@@ -69,7 +69,7 @@ let tryGetCredProvFilter() =
             tryAllCom(guid,None,typeof<CredentialProvider.Interop.ICredentialProviderFilter>,None) (System.Func<_,_>(function | :? CredentialProvider.Interop.ICredentialProviderFilter as icpf -> Some icpf | _ -> eprintfn "Hello casting fail"; None))
         value |> Some
 
-    RegistryAdapters.Registry.withKey root path (fun sk ->
+    CredentialHelper.Reusable.RegistryAdapters.Registry.withKey root path (fun sk ->
         sk.GetSubKeyNames()
         |> Seq.choose tryParseGuid
         |> List.ofSeq

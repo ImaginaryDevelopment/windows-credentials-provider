@@ -1,6 +1,6 @@
 ﻿module CredentialHelper.CommandParser
 
-open Reusable
+open BReusable
 
 type CommandType =
     | ComInvoke

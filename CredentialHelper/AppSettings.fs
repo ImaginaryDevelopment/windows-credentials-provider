@@ -1,6 +1,6 @@
 ﻿module CredentialHelper.AppSettings
 
-open Reusable
+open BReusable
 
 type AppConfig = {
     DevApi: string

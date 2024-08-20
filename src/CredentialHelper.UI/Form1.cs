@@ -13,6 +13,7 @@ using CredentialHelper;
 
 namespace CredentialHelper.UI;
 
+using EventLogType = BReusable.EventLogType;
 
 public partial class Form1 : Form, IDisposable
 {
@@ -22,7 +23,7 @@ public partial class Form1 : Form, IDisposable
     readonly CancellationTokenSource cts;
 
     readonly CredentialHelper.CameraControl.CameraControl cameraControl;
-    readonly Action<string, Microsoft.FSharp.Core.FSharpOption<Reusable.EventLogType>> logger;
+    readonly Action<string, Microsoft.FSharp.Core.FSharpOption<EventLogType>> logger;
 
     readonly CredentialHelper.CameraControl.ProtectedValue<int> cameraIndex;
 
@@ -36,7 +37,7 @@ public partial class Form1 : Form, IDisposable
 
     public ApiClient.VerificationResult? VerificationResult { get; set; }
 
-    public Form1(Action<string,Microsoft.FSharp.Core.FSharpOption<Reusable.EventLogType>> logger, CancellationTokenSource? cts = null)
+    public Form1(Action<string,Microsoft.FSharp.Core.FSharpOption<EventLogType>> logger, CancellationTokenSource? cts = null)
     {
         InitializeComponent();
         this.logger = logger;
@@ -77,7 +78,7 @@ public partial class Form1 : Form, IDisposable
 
         // relies on capture camera invoking the setter above to kick off post-initializing work
         cameraControl.CaptureCamera(cameraIndex.Value, this.cts.Token);
-        this.Text = this.Text + "(" + PartialGen.Built.ToString() + ")";
+        this.Text = this.Text + "(" + PartialGen.Built.ToString() + ")" + "(" + PartialGen.LastCommitHash + ")";
 #if DEBUG
         this.btnDiag.Click += this.BtnDiag_Click;
         this.Text += "-DEBUG";
@@ -234,7 +235,7 @@ public partial class Form1 : Form, IDisposable
     {
         try
         {
-            logger($"Disposing form(disp:{disposing}-isDisp:{IsDisposeRequested}-isCncl:{this.IsCancellationRequested})", null);
+            logger($"Disposing form(disp:{disposing}-isDisp:{IsDisposeRequested}-isCncl:{this.IsCancellationRequested})", default);
         } catch { }
         IsDisposeRequested = true;
         if (disposing && (components != null))
@@ -256,7 +257,7 @@ public partial class Form1 : Form, IDisposable
     }
 }
 
-public class Reporter : Reusable.Reporter
+public class Reporter : BReusable.Reporter
 {
     static Reporter instance = new();
     public static Reporter Instance => instance;

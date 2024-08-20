@@ -17,11 +17,12 @@ class Program
 #if DEBUG
                 CredentialHelper.CommandParser.CommandType.ShowUI;
 #else
-                CredentialHelper.CommandParser.getCommandType(Environment.GetCommandLineArgs());
+                CredentialHelper.CommandParser.CommandType.ShowUI;
+                //CredentialHelper.CommandParser.getCommandType(Environment.GetCommandLineArgs());
 #endif
 
         Console.WriteLine(runType);
-        Log.LogText("(" + CredentialHelper.UI.PartialGen.Built.ToString("yyyyMMdd") + "): Run type:" + runType.ToString());
+        Log.LogText("(" + CredentialHelper.Generated.PartialGen.Built.ToString("yyyyMMdd") + "): Run type:" + runType.ToString());
         if (runType.IsAttemptLogin)
         {
             var networkCredential = CredentialsDialog.GetCredentials("Hey!", "We would like a login.");
@@ -90,7 +91,7 @@ class Program
     static void RunImpersonation(CredentialHelper.ApiClient.VerificationResult vr)
     {
         Log.LogText("Attempting impersonation");
-        var impSuccess = ImpersonationHelper.RunImpersonated(vr, () => Log.LogText("Impersonation running", Reusable.EventLogType.Warning));
+        var impSuccess = ImpersonationHelper.RunImpersonated(vr, () => Log.LogText("Impersonation running", BReusable.EventLogType.Warning));
         if (!impSuccess)
         {
             Console.Error.WriteLine($"Failed to impersonate for:{vr.Domain}\\{vr.Username}");

@@ -1,8 +1,7 @@
-﻿namespace CredentialHelper.RegistryAdapters
+﻿namespace CredentialHelper.Reusable.RegistryAdapters
 
-open CredentialHelper
-
-open Reusable
+open BReusable
+open CredentialHelper.Reusable
 
 module Registry =
     let withKey (root:Microsoft.Win32.RegistryKey) (path:string) f =

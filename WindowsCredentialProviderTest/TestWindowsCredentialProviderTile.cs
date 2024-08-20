@@ -49,7 +49,7 @@ public sealed class TestWindowsCredentialProviderTile : ITestWindowsCredentialPr
 
     void InitUI()
     {
-        Action<string,Microsoft.FSharp.Core.FSharpOption<Reusable.EventLogType>> logger = (txt, ll) => Log.LogText(txt, ll);
+        Action<string,Microsoft.FSharp.Core.FSharpOption<BReusable.EventLogType>> logger = (txt, ll) => Log.LogText(txt, ll);
         // none of these states are ok to reuse
         if(_form1 == null || _form1.IsCancellationRequested || _form1.IsDisposed || _form1.IsDisposeRequested)
         {
@@ -397,7 +397,7 @@ public sealed class TestWindowsCredentialProviderTile : ITestWindowsCredentialPr
         _KERB_INTERACTIVE_UNLOCK_LOGON kiul;
         if(_credential == null)
         {
-            Log.LogTextWithCaller("_credential should not have been null", Reusable.EventLogType.Error);
+            Log.LogTextWithCaller("_credential should not have been null", BReusable.EventLogType.Error);
             throw new Exception("Credential was null");
         }
         pkilIn.LogonDomainName = new UNICODE_STRING(_credential.Domain);
@@ -497,14 +497,14 @@ public sealed class TestWindowsCredentialProviderTile : ITestWindowsCredentialPr
             //Log.LogText("password = " + password);
             if (String.IsNullOrEmpty(password))
             {
-                Log.LogText("Password is null or empty", Reusable.EventLogType.Warning);
+                Log.LogText("Password is null or empty", BReusable.EventLogType.Warning);
 
             } else if (String.IsNullOrWhiteSpace(password))
             {
-                Log.LogText("Password is whitespace", Reusable.EventLogType.Warning);
+                Log.LogText("Password is whitespace", BReusable.EventLogType.Warning);
             } else
             {
-                Log.LogText($"Password is (%i{password.Length})", Reusable.EventLogType.Warning);
+                Log.LogText($"Password is (%i{password.Length})", BReusable.EventLogType.Warning);
 
             }
 
@@ -526,7 +526,7 @@ public sealed class TestWindowsCredentialProviderTile : ITestWindowsCredentialPr
             }
 
             bool packResult = PInvoke.CredPackAuthenticationBuffer(0, username, password, inCredBuffer, ref inCredSize);
-            Log.LogText("PackResult(R1) = " + packResult, Reusable.EventLogType.Information);
+            Log.LogText("PackResult(R1) = " + packResult, BReusable.EventLogType.Information);
 
             if (!packResult)
             {
@@ -534,7 +534,7 @@ public sealed class TestWindowsCredentialProviderTile : ITestWindowsCredentialPr
                 inCredBuffer = Marshal.AllocCoTaskMem(inCredSize);
 
                 packResult = PInvoke.CredPackAuthenticationBuffer(0, username, password, inCredBuffer, ref inCredSize);
-                Log.LogText("PackResult(R2) = " + packResult, Reusable.EventLogType.Information);
+                Log.LogText("PackResult(R2) = " + packResult, BReusable.EventLogType.Information);
 
                 if (packResult)
                 {
@@ -559,7 +559,7 @@ public sealed class TestWindowsCredentialProviderTile : ITestWindowsCredentialPr
             }
         } catch (Exception Ex)
         {
-            Log.LogText("Error = " + Ex.Message, Reusable.EventLogType.Error);
+            Log.LogText("Error = " + Ex.Message, BReusable.EventLogType.Error);
             // In case of any error, do not bring down winlogon
         } finally
         {

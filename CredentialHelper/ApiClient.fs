@@ -1,6 +1,6 @@
 ﻿module CredentialHelper.ApiClient
 
-open Reusable
+open BReusable
 
 open CredentialHelper.PackageAdapters
 

@@ -1,6 +1,6 @@
-﻿namespace CredentialHelper.ProcessAdapters
+﻿namespace CredentialHelper.Reusable.ProcessAdapters
 
-open Reusable
+open BReusable
 
 module Helpers =
     let printOut =
@@ -12,6 +12,35 @@ module Helpers =
 module Where =
     let where cmd =
         Process.executeProcessHarnessed "where" cmd
+
+    let runWithWhereIfNecessary cmd args =
+        try
+            Process.executeProcessHarnessed cmd args
+        with ex ->
+            eprintfn "Needed where I guess?: %s-%s" (tryGetTypeName ex) ex.Message
+            let ec, text = where cmd
+            //Helpers.printOuts text
+            let cmd = text[0] |> snd
+            //printfn "found at '%s'" cmd
+            Process.executeProcessHarnessed cmd args
+
+module Git =
+    let getLastCommit() =
+        try
+            let ec, outs = Where.runWithWhereIfNecessary "git" "log -n 1"
+            printfn "ec:%i" ec
+            outs
+            |> Seq.choose(
+                function
+                | OutputType.StdOut, Trim (After "commit " (Before " " hash)) -> Some hash
+                | _ -> None
+            )
+            |> Seq.tryHead
+            |> Option.defaultValue (string ec)
+        with ex ->
+            $"{tryGetTypeName ex}:{ex.Message}"
+
+
 module DsRegCmd =
 
     type private DsRegState = | GatheringHeader | Headed of string
@@ -20,7 +49,7 @@ module DsRegCmd =
         let cmd = "dsregcmd.exe"
         let ec, text =
             try
-            Process.executeProcessHarnessed cmd "/status"
+                Process.executeProcessHarnessed cmd "/status"
             with ex ->
                 eprintfn "Needed where I guess?: %s-%s" (tryGetTypeName ex) ex.Message
                 let ec, text = Where.where cmd

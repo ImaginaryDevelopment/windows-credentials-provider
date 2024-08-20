@@ -2,7 +2,7 @@
 module CredentialHelper.CHelpers
 open System.Runtime.CompilerServices
 
-open Reusable
+open BReusable
 
 [<Extension>]
 let toList (this: 't seq) =
@@ -30,7 +30,7 @@ let mapOk(this:Result<'t,_>, f: System.Func<'t,_>) : Result<_,_> =
     |> Result.map f.Invoke
 
 let createLatchedFunction (action: System.Action) =
-    Reusable.createLatchedFunction action.Invoke
+    BReusable.createLatchedFunction action.Invoke
 
 let createLatchedFunctionA action : System.Action =
     let f = createLatchedFunction action

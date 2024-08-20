@@ -1,6 +1,6 @@
 ﻿module CredentialHelper.QRCode
 
-open Reusable
+open BReusable
 open ZXing
 open ZXing.Common
 

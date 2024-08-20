@@ -3,7 +3,7 @@
 open System.Threading
 open System.Threading.Tasks
 
-open Reusable
+open BReusable
 
 type ErrorType = string
 
@@ -54,7 +54,7 @@ let createVerifyQrCodeDelegate: _ -> CredentialDelegateType =
         verifyQrCode config
 
 let outputDiagnostics (dllComGuid) =
-    RegistryAdapters.Diag.outputDiagnostics(dllComGuid)
+    CredentialHelper.Reusable.RegistryAdapters.Diag.outputDiagnostics(dllComGuid)
 
 
 type WorkerState =

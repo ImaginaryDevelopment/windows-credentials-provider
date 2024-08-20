@@ -7,5 +7,6 @@ using System.Threading.Tasks;
 namespace CredentialHelper.UI;
 public static class PartialGen
 {
-    public static DateTime Built => CredentialHelper.UI.BuildInfo.Built;
+    public static DateTime Built => CredentialHelper.Generated.PartialGen.Built;
+    public static string LastCommitHash => CredentialHelper.Generated.PartialGen.LastCommitHash;
 }

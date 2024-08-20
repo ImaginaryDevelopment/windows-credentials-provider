@@ -6,7 +6,7 @@
     using System.Linq;
     using System.Runtime.CompilerServices;
 
-    using static Reusable;
+    using static BReusable;
     using CredentialHelper;
     using System.Collections.Generic;
 
@@ -16,7 +16,7 @@
         {
             try
             {
-                var cfp = Reusable.tryMungeCallerFilePath(callerFilePath);
+                var cfp = BReusable.tryMungeCallerFilePath(callerFilePath);
                 // try getting just the file name
                 LogText($"{callerName}:{text}:{cfp}");
             } catch
@@ -53,15 +53,15 @@
                 "CredentialProviderLog.log.txt"
             }.toList();
 
-                var fla = new CredentialHelper.Logging.FullLoggingArgs("WindowsCredentialProviderTest", CredentialHelper.Logging.LogListAttemptType.TryAll, logFileNames);
-                CredentialHelper.Logging.tryLoggingsWithFallback(fla, text, elt2);
+                var fla = new CredentialHelper.Reusable.Logging.FullLoggingArgs("WindowsCredentialProviderTest", CredentialHelper.Reusable.Logging.LogListAttemptType.TryAll, logFileNames);
+                CredentialHelper.Reusable.Logging.tryLoggingsWithFallback(fla, text, elt2);
             } catch
             {
                 try
                 {
 
-                    var fla = new CredentialHelper.Logging.FullLoggingArgs("WindowsCredentialProviderTest", CredentialHelper.Logging.LogListAttemptType.TryAll, Microsoft.FSharp.Collections.FSharpList<string>.Empty);
-                    CredentialHelper.Logging.tryLoggingsWithFallback(fla, text, elt2);
+                    var fla = new CredentialHelper.Reusable.Logging.FullLoggingArgs("WindowsCredentialProviderTest", CredentialHelper.Reusable.Logging.LogListAttemptType.TryAll, Microsoft.FSharp.Collections.FSharpList<string>.Empty);
+                    CredentialHelper.Reusable.Logging.tryLoggingsWithFallback(fla, text, elt2);
                 } catch
                 {
 

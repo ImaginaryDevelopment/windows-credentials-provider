@@ -1,7 +1,7 @@
 ﻿module CredentialHelper.CameraControl
 
-open Reusable
-open Reusable.Controls
+open BReusable
+open BReusable.Controls
 
 open System
 open System.Collections.Generic
