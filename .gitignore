@@ -260,3 +260,4 @@ __pycache__/
 *.pyc
 
 !messages/bin
+/WCPT src.zip

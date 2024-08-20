@@ -14,14 +14,6 @@ open System.Collections.Generic
 
 type private Stub = class end 
 
-[<RequireQualifiedAccess>]
-type EventLogType =
-    | Error // 1
-    | Warning // 2
-    | Information // 4
-    | SuccessAudit // 8
-    | FailureAudit // 16
-
 let inline private mapEventLogType elt =
     match elt with
     | EventLogType.Information -> EventLogEntryType.Information
@@ -29,7 +21,7 @@ let inline private mapEventLogType elt =
     | EventLogType.FailureAudit -> EventLogEntryType.FailureAudit
     | EventLogType.SuccessAudit -> EventLogEntryType.SuccessAudit
     | EventLogType.Warning -> EventLogEntryType.Warning
-    
+
 let tryLogFile fn (text:string,elt) =
     if System.String.IsNullOrWhiteSpace fn then
         Error "Bad logging filename"
@@ -148,54 +140,46 @@ let tryf f args =
 
 let mutable startupLogged = false
 
-let asmOpt = lazy(
+let chAsmOpt = lazy(
     let t = typeof<Stub>
     ()
     |> tryf (fun () ->
-        t.GetType().Assembly)
+        t.Assembly
+    )
 )
-
-let prefixes =
-    [
-        "c", fun (asm:System.Reflection.Assembly) -> asm.CodeBase
-        "l", fun (asm:System.Reflection.Assembly) -> asm.Location
-    ]
-    |> List.map(fun (n,f) -> n + "|", tryf f)
-    |> Map.ofList
-
-let fixLocationInfo location =
-    match location with
-    | WhiteSpace _ | NonValueString -> None
-    | After "l|" v -> Some v
-    | After "c|" v -> Some v
-    | ValueString _ -> Some location
-    |> Option.map(function
-        | After "file:///" v ->
-            // fix, assuming windows
-            if System.IO.Path.DirectorySeparatorChar = '\\' && v.Contains "/" then
-                v |> replace "/" "\\"
-            else v
-        | v -> v
+let tryGetAsm f : Lazy<System.Reflection.Assembly option>=
+    lazy(
+        tryf f ()
     )
 
-let tryGetLocation (asm:System.Reflection.Assembly) =
-    (None, prefixes)
-    ||> Map.fold(fun state prefix attemptF ->
-        match state with
-        | Some l -> Some l
-        | None ->
-            attemptF asm |> Option.bind fixLocationInfo |> Option.map (fun l -> prefix + "|" + l)
+let asms =
+    lazy (
+        [
+            "Entry",tryGetAsm System.Reflection.Assembly.GetEntryAssembly
+            "ChAsm",chAsmOpt
+            //"Exe", tryGetAsm System.Reflection.Assembly.GetCallingAssembly
+        ]
+        |> List.choose (Tuple2.mapSnd _.Value >> Option.ofSnd)
     )
-        //tryf (fun () ->
-        //    "c|" + asm.CodeBase)
-        //|> Option.orElseWith(fun () ->
-        //    tryf (fun () -> "l|" + asm.Location)
-        //)
+
+//let prefixes =
+//    [
+//        Codebase, fun (asm:System.Reflection.Assembly) -> asm.CodeBase
+//        Location, fun (asm:System.Reflection.Assembly) -> asm.Location
+//    ]
+//    |> List.map(fun (n,f) -> n, tryf f)
+//    |> Map.ofList
 
 let tryGetFileInfo (location:string) =
     // codebase may produce this: file:///C:/Users/User/AppData/Local/Temp/LINQPad7/_dwololqc/query_kgvigc.dll
-    fixLocationInfo location
-    |> Option.map System.IO.Path.GetFullPath
+    Reflection.fixLocationInfo location
+    |> fun v ->
+        try
+            System.IO.Path.GetFullPath v
+            |> Some
+        with ex ->
+            eprintfn "Could not get value from location: '%s' - '%s'" ex.Message v
+            None
     |> Option.filter File.Exists
     |> Option.bind( tryf (fun location -> System.IO.FileInfo location) )
 
@@ -205,25 +189,58 @@ let logStartup fla =
         let log (msg,elt) = tryLoggingsWithFallback' fla (msg,elt) |> ignore<Map<_,_>>
 
         log ("CD:" + System.Environment.CurrentDirectory, EventLogType.Information)
-        asmOpt.Value
-        |> Option.iter(fun asm ->
+
+        let tryLogStartupInfo title asm =
             asm
-            |> tryGetLocation
-            |> Option.iter(fun l ->
-                log (l,EventLogType.SuccessAudit)
-                tryGetFileInfo l
-                |> Option.iter(fun fi ->
-                    [
-                        "LastWrite:"+ fi.LastWriteTime.ToString("o")
-                        "Created:" + fi.CreationTime.ToString("o")
-                    ]
-                    |> List.iter(fun msg ->
-                        log ( msg, EventLogType.SuccessAudit)
+            |> Reflection.tryGetLocation
+            |> Option.iter(fun li ->
+                let fi =
+                    tryGetFileInfo li.Path
+                    |> Option.map(fun fi ->
+                        [
+                            "LastWrite:"+ fi.LastWriteTime.ToString("o")
+                            "Created:" + fi.CreationTime.ToString("o")
+                            "SHA:60b5d16"
+                        ]
                     )
-                )
+                    |> Option.defaultValue List.empty
+                let msg =
+                    [
+                        $"{title}|{li.LocationType}|{li.Path}"
+                        yield! fi
+                    ]
+                    |> String.concat System.Environment.NewLine
+                log (msg,EventLogType.SuccessAudit)
             )
-        )
+
+        // log assemblies
+        match asms.Value with
+        | [] -> log ("No Asms found", EventLogType.Error)
+        | asms ->
+            (List.empty,asms)
+            ||> List.fold(fun asmNames (title,asm) ->
+                if asmNames |> List.contains asm.FullName then
+                    asmNames
+                else
+                    tryLogStartupInfo title asm
+                    asm.FullName :: asmNames
+            )
+            |> ignore
 
 let tryLoggingsWithFallback fla (text,elt) =
-    logStartup fla
-    tryLoggingsWithFallback' fla (text,elt)
+    // we're going to try logging startup, and if that fails, try what was requested before trying to log the startup failure
+
+    let tryLog (text,elt) = tryLoggingsWithFallback' fla (text,elt)
+    let mutable runMainResult = None
+    let runMain() =
+        match runMainResult with
+        | None -> 
+            tryLog (text,elt)
+        | Some r -> r
+    try
+        logStartup fla
+        runMain()
+    with _ ->
+        let result = runMain()
+        tryLog("log startup failed", EventLogType.FailureAudit) |> ignore<Map<_,_>>
+        result

@@ -16,7 +16,7 @@ namespace WindowsCredentialProviderTest.OnDemandLogon
         private readonly Timer timer;
         private int secondsLeft = 6;
 
-        public event TimerEndedDelegate TimerEnded;
+        public event TimerEndedDelegate? TimerEnded;
 
         public TimerOnDemandLogon(
             ICredentialProviderEvents credentialProviderEvents,

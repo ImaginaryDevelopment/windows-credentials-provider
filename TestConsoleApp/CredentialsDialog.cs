@@ -73,19 +73,18 @@
             StringBuilder pszDomainName, ref int pcchMaxDomainname,
             StringBuilder pszPassword, ref int pcchMaxPassword);
 
-        public static NetworkCredential GetCredentials(string caption, string message)
+        public static NetworkCredential? GetCredentials(string caption, string message)
         {
-            CREDUI_INFO uiInfo = new CREDUI_INFO();
+            CREDUI_INFO uiInfo = new ();
             uiInfo.cbSize = Marshal.SizeOf(uiInfo);
             uiInfo.pszCaptionText = caption;
             uiInfo.pszMessageText = message;
 
             uint authPackage = 0;
-            IntPtr outCredBuffer = new IntPtr();
-            uint outCredSize;
+            IntPtr outCredBuffer = new ();
             bool save = false;
             int result = CredUIPromptForWindowsCredentials(ref uiInfo, 0, ref authPackage,
-                IntPtr.Zero, 0, out outCredBuffer, out outCredSize, ref save, 0);
+                IntPtr.Zero, 0, out outCredBuffer, out var outCredSize, ref save, 0);
 
             var usernameBuf = new StringBuilder(100);
             var passwordBuf = new StringBuilder(100);
