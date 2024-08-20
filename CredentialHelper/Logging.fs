@@ -200,6 +200,7 @@ let logStartup fla =
                         [
                             "LastWrite:"+ fi.LastWriteTime.ToString("o")
                             "Created:" + fi.CreationTime.ToString("o")
+                            "SHA:ec821ab"
                         ]
                     )
                     |> Option.defaultValue List.empty

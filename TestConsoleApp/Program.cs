@@ -14,11 +14,11 @@ class Program
     {
         // arg[0] is our app name, right?
         var runType =
-            #if DEBUG
+#if DEBUG
                 CredentialHelper.CommandParser.CommandType.ShowUI;
-            #else
+#else
                 CredentialHelper.CommandParser.getCommandType(Environment.GetCommandLineArgs());
-            #endif
+#endif
 
         Console.WriteLine(runType);
         Log.LogText("(" + CredentialHelper.UI.PartialGen.Built.ToString("yyyyMMdd") + "): Run type:" + runType.ToString());
@@ -49,7 +49,7 @@ class Program
         } else if (runType.IsShowUI)
         {
             CredentialHelper.ApiClient.VerificationResult? vr = null;
-            using (var form1 = new CredentialHelper.UI.Form1((txt,ll) => Log.LogText(txt,ll)))
+            using (var form1 = new CredentialHelper.UI.Form1((txt, ll) => Log.LogText(txt, ll)))
             {
                 if (form1.InvokeRequired)
                 {
@@ -72,9 +72,11 @@ class Program
         } else if (runType.IsApiCall)
         {
             TryApiCall();
-        } else if (runType.IsShowArgs) {
+        } else if (runType.IsShowArgs)
+        {
             ShowArgs();
-        } else if (runType.IsOutputDiagnostics) {
+        } else if (runType.IsOutputDiagnostics)
+        {
             CredentialHelper.CompositionRoot.outputDiagnostics(Guid.Parse(Constants.CredentialProviderUID));
         } else
         {
@@ -94,6 +96,7 @@ class Program
             Console.Error.WriteLine($"Failed to impersonate for:{vr.Domain}\\{vr.Username}");
         }
     }
+
     static void TryComTestCredProviderInvoke()
     {
         var g = System.Guid.Parse(WindowsCredentialProviderTest.Constants.CredentialProviderUID);
@@ -124,8 +127,7 @@ class Program
     }
     static void TryComFilterInvoke()
     {
-        
-        }
+    }
 
     static void TryComInvoke()
     {
@@ -146,7 +148,7 @@ class Program
         Console.WriteLine(r);
     }
 
-    static TestWindowsCredentialProvider ValidateCP(object o)
+    static TestWindowsCredentialProvider? ValidateCP(object o)
     {
         Log.LogMethodCall();
 

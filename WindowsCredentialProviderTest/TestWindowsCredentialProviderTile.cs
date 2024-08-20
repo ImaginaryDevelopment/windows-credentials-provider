@@ -8,7 +8,6 @@ using System.Linq;
 using System.Net;
 using System.Runtime.InteropServices;
 using System.Text;
-using System.Text.RegularExpressions;
 
 using WindowsCredentialProviderTest.Properties;
 
@@ -27,7 +26,7 @@ public sealed class TestWindowsCredentialProviderTile : ITestWindowsCredentialPr
 
     // ui offers to make this a singleton lock
     readonly object _testUILock = new();
-    CredentialHelper.UI.Form1 _form1;
+    CredentialHelper.UI.Form1? _form1;
 
     // more recent example has this:
     bool IsUnlock { get; set; }
@@ -39,6 +38,7 @@ public sealed class TestWindowsCredentialProviderTile : ITestWindowsCredentialPr
         CredProviderUsageEnum usageScenario
     )
     {
+        Log.LogMethodCall();
         this.testWindowsCredentialProvider = testWindowsCredentialProvider;
         this.usageScenario = usageScenario;
 

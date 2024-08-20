@@ -73,7 +73,7 @@
             StringBuilder pszDomainName, ref int pcchMaxDomainname,
             StringBuilder pszPassword, ref int pcchMaxPassword);
 
-        public static NetworkCredential GetCredentials(string caption, string message)
+        public static NetworkCredential? GetCredentials(string caption, string message)
         {
             CREDUI_INFO uiInfo = new ();
             uiInfo.cbSize = Marshal.SizeOf(uiInfo);
