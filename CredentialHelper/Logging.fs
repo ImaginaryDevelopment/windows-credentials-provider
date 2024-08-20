@@ -200,7 +200,7 @@ let logStartup fla =
                         [
                             "LastWrite:"+ fi.LastWriteTime.ToString("o")
                             "Created:" + fi.CreationTime.ToString("o")
-                            "SHA:ec821ab"
+                            "SHA:60b5d16"
                         ]
                     )
                     |> Option.defaultValue List.empty
@@ -228,5 +228,19 @@ let logStartup fla =
             |> ignore
 
 let tryLoggingsWithFallback fla (text,elt) =
-    logStartup fla
-    tryLoggingsWithFallback' fla (text,elt)
+    // we're going to try logging startup, and if that fails, try what was requested before trying to log the startup failure
+
+    let tryLog (text,elt) = tryLoggingsWithFallback' fla (text,elt)
+    let mutable runMainResult = None
+    let runMain() =
+        match runMainResult with
+        | None -> 
+            tryLog (text,elt)
+        | Some r -> r
+    try
+        logStartup fla
+        runMain()
+    with _ ->
+        let result = runMain()
+        tryLog("log startup failed", EventLogType.FailureAudit) |> ignore<Map<_,_>>
+        result

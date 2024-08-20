@@ -12,20 +12,19 @@
 
     public static class Log
     {
-        public static void LogTextWithCaller(string text, EventLogType elt = null, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerName = "")
+        public static void LogTextWithCaller(string text, EventLogType? elt = null, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerName = "")
         {
             try
             {
-
                 var cfp = Reusable.tryMungeCallerFilePath(callerFilePath);
                 // try getting just the file name
-                LogText($"{text}: {callerName}:{cfp}");
+                LogText($"{callerName}:{text}:{cfp}");
             } catch
             {
                 try
                 {
                     LogText("LogTextWithCaller failed");
-                    LogText($"{text}: {callerName}:{callerFilePath}");
+                    LogText($"{callerName}:{text}:{callerFilePath}");
                 } catch { }
             }
 
@@ -41,7 +40,7 @@
             }
         }
 
-        public static void LogText(string text, EventLogType elt = null)
+        public static void LogText(string text, EventLogType? elt = null)
         {
             var elt2 = elt ?? EventLogType.Warning;
             try
@@ -83,7 +82,7 @@
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        public static void LogMethodCall(EventLogType elt = null, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerName = "")
+        public static void LogMethodCall(EventLogType? elt = null, [CallerFilePath] string callerFilePath = "", [CallerMemberName] string callerName = "")
         {
             try
             {

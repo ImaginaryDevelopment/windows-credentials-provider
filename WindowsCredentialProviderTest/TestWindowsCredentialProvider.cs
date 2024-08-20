@@ -12,8 +12,8 @@
     public class TestWindowsCredentialProvider : ITestWindowsCredentialProvider
     {
         _CREDENTIAL_PROVIDER_USAGE_SCENARIO usageScenario = _CREDENTIAL_PROVIDER_USAGE_SCENARIO.CPUS_INVALID;
-        TestWindowsCredentialProviderTile credentialTile = null;
-        internal ICredentialProviderEvents CredentialProviderEvents;
+        TestWindowsCredentialProviderTile? credentialTile = null;
+        internal ICredentialProviderEvents? CredentialProviderEvents;
         internal uint CredentialProviderEventsAdviseContext = 0;
         public uint AdviseContext => this.CredentialProviderEventsAdviseContext;
 
@@ -26,7 +26,7 @@
 
         public int SetUsageScenario(_CREDENTIAL_PROVIDER_USAGE_SCENARIO cpus, uint dwFlags)
         {
-            Log.LogMethodCall();
+            Log.LogTextWithCaller(cpus.ToString());
 
             usageScenario = cpus;
 
@@ -143,7 +143,7 @@
             return HResultValues.S_OK;
         }
 
-        public int GetCredentialAt(uint dwIndex, out ICredentialProviderCredential ppcpc)
+        public int GetCredentialAt(uint dwIndex, out ICredentialProviderCredential? ppcpc)
         {
             Log.LogMethodCall();
             try

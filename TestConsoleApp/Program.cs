@@ -148,7 +148,7 @@ class Program
         Console.WriteLine(r);
     }
 
-    static TestWindowsCredentialProvider? ValidateCP(object o)
+    static TestWindowsCredentialProvider ValidateCP(object o)
     {
         Log.LogMethodCall();
 
@@ -157,10 +157,10 @@ class Program
             Console.WriteLine("found twcp");
             Console.WriteLine(twcp.SayHello());
             return twcp;
-        } else if (o is WindowsCredentialProviderTest.ITestWindowsCredentialProvider icp)
+        } else if (o is WindowsCredentialProviderTest.ITestWindowsCredentialProvider _icp)
         {
             Console.WriteLine("found icp");
         }
-        return null;
+        return default;
     }
 }

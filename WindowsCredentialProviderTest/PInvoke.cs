@@ -91,7 +91,7 @@ namespace WindowsCredentialProviderTest
         public static extern bool CredProtectW(
     [System.Runtime.InteropServices.MarshalAsAttribute(System.Runtime.InteropServices.UnmanagedType.Bool)] bool fAsSelf,
     [System.Runtime.InteropServices.MarshalAsAttribute(System.Runtime.InteropServices.UnmanagedType.LPWStr)] System.Text.StringBuilder? pszCredentials,
-    uint cchCredentials, [System.Runtime.InteropServices.MarshalAsAttribute(System.Runtime.InteropServices.UnmanagedType.LPWStr)] System.Text.StringBuilder pszProtectedCredentials,
+    uint cchCredentials, [System.Runtime.InteropServices.MarshalAsAttribute(System.Runtime.InteropServices.UnmanagedType.LPWStr)] System.Text.StringBuilder? pszProtectedCredentials,
     ref uint pcchMaxChars,
     ref int protectionType);
 

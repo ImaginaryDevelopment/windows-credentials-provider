@@ -145,6 +145,46 @@ type CameraControl(imageProp: Property<Image>, sleepFetchOpt: unit -> int option
     member _.IsRunning = cameraState.Value = CameraState.Started && captureWrapper.IsOpened
 
     member _.CaptureCamera (index: int, ct: System.Threading.CancellationToken) =
+        let onStarted index =
+            logger.Invoke($"captureWrapper starting on %i{index}", None)
+            while not ct.IsCancellationRequested && cameraState.Value <> Stopped do
+                match frame with
+                | Some frame when frame.IsDisposed ->
+                    None
+                | None -> None
+                | Some frame -> Some frame
+                |> Option.defaultWith(fun () ->
+                    let frameValue = new DisposalTracker<_>("MatFrame", new Mat(), false)
+                    frame <- Some frameValue
+                    frameValue
+                )
+                |> fun frame -> frame.TryGet()
+                |> Option.iter (fun frame ->
+                    if not <| captureWrapper.Read frame then
+                        let msg = $"Camera read failed: '%A{cameraState.Value}'" 
+                        eprintfn "%s" msg
+                        logger.Invoke(msg, Some EventLogType.FailureAudit)
+                    else
+                    cameraState.Value <- Started
+                    // get the old image to dispose later
+                    // should we be using the local `image` field instead of a getter?
+                    let toDispose = image // imageProp.Getter()
+                    // store the image locally
+                    let bm = BitmapConverter.ToBitmap frame
+                    image <- Some (new DisposalTracker<_>("BitFrame", bm, false))
+                    // set the image into the parent prop
+                    imageProp.Setter bm
+                    // dispose the old image
+                    toDispose
+                    |> Option.iter(fun image ->
+                        if not image.IsDisposed then
+                            image.Dispose("cameraCaptureCallback")
+                    )
+                )
+                match sleepFetchOpt() with
+                | None -> ()
+                | Some sleep -> System.Threading.Thread.Sleep(sleep)
+            ()
         match cameraState.Value with
         | Started
         | Initializing -> ()
@@ -152,51 +192,28 @@ type CameraControl(imageProp: Property<Image>, sleepFetchOpt: unit -> int option
             // TODO: consider performance of running in too tight of a loop
             let captureCameraCallback =
                 fun () ->
-                    cameraState.Value <- Initializing
-                    // should we reuse this one?
-                    if not <| captureWrapper.TryStart index then
-                        let msg = $"captureWrapper failed to start on %i{index}" 
-                        eprintfn "%s" msg
-                        logger.Invoke(msg, Some EventLogType.Error)
-                    else
-                        while not ct.IsCancellationRequested && cameraState.Value <> Stopped do
-                            match frame with
-                            | Some frame when frame.IsDisposed ->
-                                None
-                            | None -> None
-                            | Some frame -> Some frame
-                            |> Option.defaultWith(fun () ->
-                                let frameValue = new DisposalTracker<_>("MatFrame", new Mat(), false)
-                                frame <- Some frameValue
-                                frameValue
-                            )
-                            |> fun frame -> frame.TryGet()
-                            |> Option.iter (fun frame ->
-                                if not <| captureWrapper.Read frame then
-                                    let msg = $"Camera read failed: '%A{cameraState.Value}'" 
-                                    eprintfn "%s" msg
-                                    logger.Invoke(msg, Some EventLogType.FailureAudit)
+                    if not ct.IsCancellationRequested then
+                        try
+                            let toTry = [index;index+1;-1]
+                            cameraState.Value <- Initializing
+                            // should we reuse this one?
+                            toTry
+                            |> Seq.tryFind(fun index ->
+                                if ct.IsCancellationRequested then
+                                    false
                                 else
-                                cameraState.Value <- Started
-                                // get the old image to dispose later
-                                // should we be using the local `image` field instead of a getter?
-                                let toDispose = image // imageProp.Getter()
-                                // store the image locally
-                                let bm = BitmapConverter.ToBitmap frame
-                                image <- Some (new DisposalTracker<_>("BitFrame", bm, false))
-                                // set the image into the parent prop
-                                imageProp.Setter bm
-                                // dispose the old image
-                                toDispose
-                                |> Option.iter(fun image ->
-                                    if not image.IsDisposed then
-                                        image.Dispose("cameraCaptureCallback")
-                                )
+                                    let worked = captureWrapper.TryStart index
+                                    if not worked then
+                                        let msg = $"captureWrapper failed to start on %i{index}" 
+                                        eprintfn "%s" msg
+                                        logger.Invoke(msg, Some EventLogType.Error)
+                                    worked
                             )
-                            match sleepFetchOpt() with
-                            | None -> ()
-                            | Some sleep -> System.Threading.Thread.Sleep(sleep)
-                        ()
+                            |> Option.iter onStarted
+                        with ex ->
+                            if not ct.IsCancellationRequested then
+                                logger.Invoke("captureCameraCallback failed:" + tryGetTypeName ex + ":" + ex.Message, Some EventLogType.Error)
+
 
             match cameraThread with
             | null -> ()
@@ -204,7 +221,8 @@ type CameraControl(imageProp: Property<Image>, sleepFetchOpt: unit -> int option
             if not ct.IsCancellationRequested then
                 cameraThread <- Thread(ThreadStart captureCameraCallback)
                 cameraThread.Name <- "Camera reader"
-                cameraThread.Start()
+                if not ct.IsCancellationRequested then
+                    cameraThread.Start()
 
     member _.StopCapture () =
         match cameraState.Value with

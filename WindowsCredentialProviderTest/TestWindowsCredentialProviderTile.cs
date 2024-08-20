@@ -21,8 +21,8 @@ using CredProviderUsageEnum = CredentialProvider.Interop._CREDENTIAL_PROVIDER_US
 public sealed class TestWindowsCredentialProviderTile : ITestWindowsCredentialProviderTile
 {
 
-    ICredentialProviderCredentialEvents credentialProviderCredentialEvents;
-    NetworkCredential _credential;
+    ICredentialProviderCredentialEvents? credentialProviderCredentialEvents;
+    NetworkCredential? _credential;
 
     // ui offers to make this a singleton lock
     readonly object _testUILock = new();
@@ -31,7 +31,7 @@ public sealed class TestWindowsCredentialProviderTile : ITestWindowsCredentialPr
     // more recent example has this:
     bool IsUnlock { get; set; }
     // more recent example has this:
-    string CurrentConsoleUser { get; set; } = null;
+    string? CurrentConsoleUser { get; set; } = null;
 
     public TestWindowsCredentialProviderTile(
         TestWindowsCredentialProvider testWindowsCredentialProvider,
@@ -162,7 +162,7 @@ public sealed class TestWindowsCredentialProviderTile : ITestWindowsCredentialPr
             InitUI();
             try
             {
-                this._form1.Show();
+                this._form1!.Show();
                 pbAutoLogon = 0;
                 if (this._form1 == null)
                 {
@@ -175,7 +175,7 @@ public sealed class TestWindowsCredentialProviderTile : ITestWindowsCredentialPr
                 this._credential = null;
                 this._form1 = null;
                 InitUI();
-                this._form1.Show();
+                this._form1!.Show();
                 pbAutoLogon = 0;
                 return HResultValues.S_OK;
             }
@@ -395,6 +395,11 @@ public sealed class TestWindowsCredentialProviderTile : ITestWindowsCredentialPr
         Log.LogMethodCall();
         _KERB_INTERACTIVE_LOGON pkilIn;
         _KERB_INTERACTIVE_UNLOCK_LOGON kiul;
+        if(_credential == null)
+        {
+            Log.LogTextWithCaller("_credential should not have been null", Reusable.EventLogType.Error);
+            throw new Exception("Credential was null");
+        }
         pkilIn.LogonDomainName = new UNICODE_STRING(_credential.Domain);
         pkilIn.MessageType = _KERB_LOGON_SUBMIT_TYPE.KerbWorkstationUnlockLogon;
         pkilIn.Password = uniPwd;
