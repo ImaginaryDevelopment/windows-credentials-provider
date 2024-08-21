@@ -425,6 +425,7 @@ let tryInvokes functions =
         with _ -> None
     )
     |> List.tryHead
+
 type OutputType =
     | StdOut
     | StdError
