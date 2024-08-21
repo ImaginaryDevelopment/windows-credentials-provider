@@ -32,6 +32,7 @@ static internal class Helpers
         {
             var (ec, outs) = RunWithWhereIfNecessary("git", "log -n 1", workingDirectory);
             Console.WriteLine($"ec:{ec}");
+            System.Diagnostics.Debugger.Launch();
             if (ec != 0)
             {
                 return $"ec:{ec}";
@@ -42,7 +43,7 @@ static internal class Helpers
                 var commitHash =
                     outs
                         .Where(line => !String.IsNullOrWhiteSpace(line))
-                        .Select(line => line.Trim().After("commit ").Before(" "))
+                        .Select(line => line.Trim().After("commit ")/* some versions of git have more info on this line */.BeforeOrSelf(" "))
                         .Where(line => !String.IsNullOrWhiteSpace(line))
                         .FirstOrDefault() ?? ec.ToString();
                 return commitHash;
@@ -114,6 +115,11 @@ static internal class Helpers
         } catch { return "<unk>"; }
     }
 
+    public static string? CleanEncodePath(this string? path)
+    {
+        return path?.Replace("\\", "\\\\");
+    }
+
     public static string? Encode(this string? value, string delimiter, string replacement)
     {
         if (string.IsNullOrEmpty(value)) return null;
@@ -144,6 +150,14 @@ static internal class Helpers
         {
             return value!.Substring(0, i - 1);
         } else return null;
+    }
+
+    public static string? BeforeOrSelf(this string? value, string delimiter)
+    {
+        if (value.Before(delimiter) is { } b)
+        {
+            return b;
+        } else return value;
     }
 
     public static int? tryIndexOf(this string? value, string delimiter)

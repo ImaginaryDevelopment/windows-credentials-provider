@@ -17,7 +17,7 @@ namespace CredentialHelper.SourceGen;
 public class Class1 : ISourceGenerator // IIncrementalGenerator //  
 {
     const string Namespace = "CredentialHelper.SourceGenerated";
-    string? _projectDir;
+    //string? _projectDir;
 
     //[System.Diagnostics.CodeAnalysis.SuppressMessage("MicrosoftCodeAnalysisCorrectness", "RS1035:Do not use APIs banned for analyzers", Justification = "Recording the directory we are called from")]
     //static System.Collections.Generic.IEnumerable<(string,Func<string>)> GetGenerations()
@@ -47,16 +47,19 @@ public class Class1 : ISourceGenerator // IIncrementalGenerator //
     [System.Diagnostics.CodeAnalysis.SuppressMessage("MicrosoftCodeAnalysisCorrectness", "RS1035:Do not use APIs banned for analyzers", Justification = "Recording the directory we are called from")]
     public void GenerateIt(Action<string, SourceText> addSource)
     {
-        var lastCommitHash = Helpers.GetLastCommitHash(_projectDir)?.SurroundIf(x => x.Contains("\""), "\"\"")?.Replace("\r\n", "-");
+        //var lastCommitHash = Helpers.GetLastCommitHash(_projectDir)?.SurroundIf(x => x.Contains("\""), "\"\"")?.Replace("\r\n", "-");
+        var projPath = Environment.GetEnvironmentVariable("qrCodeDir");
+        var lastCommitHash = Helpers.GetLastCommitHash(projPath)?.SurroundIf(x => x.Contains("\""), "\"\"")?.Replace("\r\n", "-");
         var now = System.DateTime.Now.Ticks;
-        var genDir = Environment.CurrentDirectory.Replace("\\", "\\\\");
+        var genDir = Environment.CurrentDirectory;
         //var now2 = new System.DateTime(now);
         var sourceText = $$"""
                 namespace {{Namespace}};
                 public static class BuildInfo {
                     public static System.DateTime Built => new System.DateTime({{now}});
                     public static string LastCommitHash => "{{lastCommitHash}}";
-                    public static string GenDir => "{{genDir}}";
+                    public static string GenDir => @"{{genDir}}";
+                    public static string QRCodeDir => @"{{projPath}}";
                 }
                 """;
         //.Replace("{lastCommitHash}", "\"\"" + lastCommitHash.Replace("\r\n","-")+"\"\"").Replace("{namespace}", Namespace);
@@ -77,11 +80,11 @@ public class Class1 : ISourceGenerator // IIncrementalGenerator //
 
     void ISourceGenerator.Execute(GeneratorExecutionContext context)
     {
-        _projectDir = context.AnalyzerConfigOptions.GlobalOptions.TryGetValue("build_property.projectdir", out var result) ? result : null;
-        var keys = context.AnalyzerConfigOptions.GlobalOptions.Keys.ToList();
-        System.Diagnostics.Debugger.Launch();
-        keys.ForEach(x => Console.WriteLine(x) );
-        GenerateIt(context.AddSource);
+        //_projectDir = context.AnalyzerConfigOptions.GlobalOptions.TryGetValue("build_property.projectdir", out var result) ? result : null;
+        //var keys = context.AnalyzerConfigOptions.GlobalOptions.Keys.ToList();
+        //System.Diagnostics.Debugger.Launch();
+        //keys.ForEach(x => Console.WriteLine(x) );
+        //GenerateIt(context.AddSource);
     }
 
     void ISourceGenerator.Initialize(GeneratorInitializationContext context)
