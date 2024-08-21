@@ -17,65 +17,24 @@ namespace CredentialHelper.SourceGen;
 public class Class1 : ISourceGenerator // IIncrementalGenerator //  
 {
     const string Namespace = "CredentialHelper.SourceGenerated";
-    //string? _projectDir;
 
-    //[System.Diagnostics.CodeAnalysis.SuppressMessage("MicrosoftCodeAnalysisCorrectness", "RS1035:Do not use APIs banned for analyzers", Justification = "Recording the directory we are called from")]
-    //static System.Collections.Generic.IEnumerable<(string,Func<string>)> GetGenerations()
-    //{
-    //    var gens = new[] { NowDelimiter,LastCommitHashDelimiter,NamespaceDelimiter , GenDirectoryDelimiter };
-    //    foreach(var g in gens)
-    //    {
-    //        switch (g)
-    //        {
-    //            case NowDelimiter:
-    //                yield return (NowDelimiter,() => DateTime.Now.Ticks.ToString());
-    //                break;
-    //            case LastCommitHashDelimiter:
-    //                yield return (LastCommitHashDelimiter, () => Helpers.GetLastCommitHash());
-    //                break;
-    //            case NamespaceDelimiter:
-    //                yield return (NamespaceDelimiter, () => Namespace);
-    //                break;
-    //            case GenDirectoryDelimiter:
-    //                yield return (GenDirectoryDelimiter, () => Environment.CurrentDirectory.Replace("\\","\\\\"));
-    //                break;
-    //        }
-    //    }
-
-    //}
 
     [System.Diagnostics.CodeAnalysis.SuppressMessage("MicrosoftCodeAnalysisCorrectness", "RS1035:Do not use APIs banned for analyzers", Justification = "Recording the directory we are called from")]
     public void GenerateIt(Action<string, SourceText> addSource)
     {
-        //var lastCommitHash = Helpers.GetLastCommitHash(_projectDir)?.SurroundIf(x => x.Contains("\""), "\"\"")?.Replace("\r\n", "-");
         var projPath = Environment.GetEnvironmentVariable("qrCodeDir");
         var lastCommitHash = Helpers.GetLastCommitHash(projPath)?.SurroundIf(x => x.Contains("\""), "\"\"")?.Replace("\r\n", "-");
         var now = System.DateTime.Now.Ticks;
-        var genDir = Environment.CurrentDirectory;
-        //var now2 = new System.DateTime(now);
         var sourceText = $$"""
                 namespace {{Namespace}};
                 public static class BuildInfo {
                     public static System.DateTime Built => new System.DateTime({{now}});
                     public static string LastCommitHash => "{{lastCommitHash}}";
-                    public static string GenDir => @"{{genDir}}";
                     public static string QRCodeDir => @"{{projPath}}";
                 }
                 """;
-        //.Replace("{lastCommitHash}", "\"\"" + lastCommitHash.Replace("\r\n","-")+"\"\"").Replace("{namespace}", Namespace);
         addSource("AssemblyInfo2.cs", SourceText.From(sourceText, Encoding.UTF8));
     }
-
-
-    //public void Initialize(IncrementalGeneratorInitializationContext context)
-    //{
-
-    //    //context.RegisterForPostInitialization
-    //    context.RegisterPostInitializationOutput(ctx =>
-    //    {
-    //        GenerateIt(ctx.AddSource);
-    //    });
-    //}
 
 
     void ISourceGenerator.Execute(GeneratorExecutionContext context)
