@@ -35,7 +35,7 @@ static internal class Helpers
             System.Diagnostics.Debugger.Launch();
             if (ec != 0)
             {
-                return $"ec:{ec}";
+                return $"ec:{ec}/{workingDirectory?.Length ?? 0}";
             }
             try
             {
