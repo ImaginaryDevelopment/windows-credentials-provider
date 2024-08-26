@@ -15,10 +15,9 @@ class Program
         // arg[0] is our app name, right?
         var runType =
 #if DEBUG
-                CredentialHelper.CommandParser.CommandType.ShowUI;
+            CredentialHelper.CommandParser.CommandType.OutputDiagnostics;
 #else
-                CredentialHelper.CommandParser.CommandType.ShowUI;
-                //CredentialHelper.CommandParser.getCommandType(Environment.GetCommandLineArgs());
+            CredentialHelper.CommandParser.getCommandType(Environment.GetCommandLineArgs());
 #endif
 
         Console.WriteLine(runType);

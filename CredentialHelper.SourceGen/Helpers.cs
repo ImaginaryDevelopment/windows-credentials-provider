@@ -32,7 +32,7 @@ static internal class Helpers
         {
             var (ec, outs) = RunWithWhereIfNecessary("git", "log -n 1", workingDirectory);
             Console.WriteLine($"ec:{ec}");
-            System.Diagnostics.Debugger.Launch();
+            //System.Diagnostics.Debugger.Launch();
             if (ec != 0)
             {
                 return $"ec:{ec}/{workingDirectory?.Length ?? 0}";
@@ -59,6 +59,7 @@ static internal class Helpers
             return $"{TryGetTypeName(ex)}:{ex.Message}:{ex.StackTrace.Replace("\"", "'")}";
         }
     }
+
     public static (int, List<string>) RunWithWhereIfNecessary(string cmd, string args, string? workingDirectory)
     {
         try
