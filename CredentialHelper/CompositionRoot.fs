@@ -53,8 +53,9 @@ let createVerifyQrCodeDelegate: _ -> CredentialDelegateType =
     fun config ->
         verifyQrCode config
 
-let outputDiagnostics (dllComGuid) =
-    CredentialHelper.Reusable.RegistryAdapters.Diag.outputDiagnostics(dllComGuid)
+let outputDiagnostics dllComGuid =
+    CredentialHelper.Reusable.RegistryAdapters.Diag.outputDiagnostics dllComGuid
+    CredentialHelper.Reusable.CertAdapters.outputDiagnostics()
 
 
 type WorkerState =

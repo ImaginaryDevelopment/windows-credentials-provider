@@ -75,6 +75,8 @@ module Diag =
 
                 // https://stackoverflow.com/questions/255669/how-to-enable-assembly-bind-failure-logging-fusion-in-net
                 //@"SOFTWARE\Microsoft\Fusion"
+
+                // HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\SystemCertificates
             ]
             //Microsoft.Win32.Registry.ClassesRoot, @"CLSID\" + guidStr
         ]
