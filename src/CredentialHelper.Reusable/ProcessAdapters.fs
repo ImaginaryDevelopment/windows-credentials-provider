@@ -44,8 +44,9 @@ module Git =
 module DsRegCmd =
 
     type private DsRegState = | GatheringHeader | Headed of string
+    type DsRegMap = Map<string,Map<string,string>>
 
-    let getStatus () =
+    let getStatus () :  Result<DsRegMap,_> =
         let cmd = "dsregcmd.exe"
         let ec, text =
             try
@@ -113,4 +114,6 @@ module DsRegCmd =
             |> fst
             |> Ok
 
-
+    let getWorkplaces (m:DsRegMap) =
+        m
+        |> Map.filter(fun k _ -> k.StartsWith "Work Account " )

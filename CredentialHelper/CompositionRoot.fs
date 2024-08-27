@@ -54,8 +54,14 @@ let createVerifyQrCodeDelegate: _ -> CredentialDelegateType =
         verifyQrCode config
 
 let outputDiagnostics dllComGuid =
+    // registry
     CredentialHelper.Reusable.RegistryAdapters.Diag.outputDiagnostics dllComGuid
+    // certificate
     CredentialHelper.Reusable.CertAdapters.outputDiagnostics()
+    // dsregcmd
+    CredentialHelper.Reusable.ProcessAdapters.DsRegCmd.getStatus()
+    |> Result.map CredentialHelper.Reusable.ProcessAdapters.DsRegCmd.getWorkplaces
+    |> printfn "%A"
 
 
 type WorkerState =
