@@ -3,6 +3,7 @@
 using System;
 using System.Threading;
 
+using CredentialHelper;
 using CredentialHelper.UI;
 
 using WindowsCredentialProviderTest;
@@ -15,7 +16,7 @@ class Program
         // arg[0] is our app name, right?
         var runType =
 #if DEBUG
-            CredentialHelper.CommandParser.CommandType.OutputDiagnostics;
+            CredentialHelper.CommandParser.CommandType.NewApiCall("320016909");
 #else
             CredentialHelper.CommandParser.getCommandType(Environment.GetCommandLineArgs());
 #endif
@@ -71,7 +72,11 @@ class Program
 
         } else if (runType.IsApiCall)
         {
-            TryApiCall();
+            if(CredentialHelper.CommandParser.CommandType.TryGetApiQrCode(runType)?.Value is string qrCode && !String.IsNullOrWhiteSpace(qrCode))
+            {
+                TryApiCall(qrCode);
+            } else TryApiCall();
+
         } else if (runType.IsShowArgs)
         {
             ShowArgs();
@@ -139,13 +144,14 @@ class Program
         CredentialHelper.CommandParser.showHelp();
     }
 
-    static void TryApiCall()
+    static void TryApiCall(string qrCode = null)
     {
         Log.LogMethodCall();
         var devApiUrl = Form1.AppConfig.DevApi;
-        var baseUrl = CredentialHelper.ApiClient.BaseUrl.TryCreate(devApiUrl).ResultValue;
-        var r = CredentialHelper.ApiClient.tryValidate(Form1.AppConfig, baseUrl, new CredentialHelper.ApiClient.AuthPost("1"), ct: CancellationToken.None).Result;
-        Console.WriteLine(r);
+        //var baseUrl = CredentialHelper.ApiClient.BaseUrl.TryCreate(devApiUrl).ResultValue;
+        //var qrCodeValue = qrCode?.ToString() ?? "1";
+        //var r = CredentialHelper.ApiClient.tryValidate(Form1.AppConfig, baseUrl, new CredentialHelper.ApiClient.AuthPost(qrCodeValue), ct: CancellationToken.None).Result;
+        CompositionRoot.tryApiCall(Form1.AppConfig, devApiUrl, qrCode);
     }
 
     static TestWindowsCredentialProvider ValidateCP(object o)

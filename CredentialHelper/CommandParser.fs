@@ -5,21 +5,30 @@ open BReusable
 type CommandType =
     | ComInvoke
     | ShowUI
-    | ApiCall
+    | ApiCall of qrCodeValue: string option
     | AttemptLogin
     | OutputDiagnostics
     | ShowArgs
+    with
+        static member TryGetApiQrCode(ct) =
+            match ct with
+            | ApiCall (Some (ValueString iOpt)) -> Some iOpt
+            | _ -> None
 
-let (|HasArg|_|) (arg:string) =
+let (|HasArg|_|) (arg:string) args =
+    args |> List.tryFind ((=) arg) |> Option.map ignore
+
+// assumes the arg pair beging at index 0 or 1
+let (|HasArgPair|_|) (arg:string) =
     function
-    | v :: _
-    | _ :: v :: [] when v = arg  -> Some ()
+    | arg' :: arg2' :: _
+    | _ :: arg' :: arg2' :: [] when arg' = arg -> Some arg2'
     | _ -> None
 
 let commands = [
     "-com", ComInvoke
     "-ui", ShowUI
-    "-api", ApiCall
+    "-api", ApiCall None
     "-login", AttemptLogin
     "-diag", OutputDiagnostics
     "-help", ShowArgs
@@ -38,7 +47,11 @@ let getCommandType (args: string[]) =
     printfn "Args: %A" args
     match args with
     | HasArg "-com" -> ComInvoke
-    | HasArg "-api" -> ApiCall
+
+    // this might catch other args
+    | HasArgPair "-api" (ValueString portOpt) when not <| portOpt.StartsWith "-" -> ApiCall (Some portOpt)
+
+    | HasArg "-api" -> ApiCall None
     | HasArg "-ui" -> ShowUI
     | HasArg "-diag" -> OutputDiagnostics
     | HasArg "-help" -> ShowArgs
