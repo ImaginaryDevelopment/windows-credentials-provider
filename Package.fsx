@@ -1,8 +1,8 @@
 // package already built release files
-#load @".\CredentialHelper\Reusable.fs"
+#load @".\src\CredentialHelper.Reusable\Reusable.fs"
 // expects to run from sln root.
 open System
-open Reusable
+open BReusable
 
 let overwriteZip = false
 
