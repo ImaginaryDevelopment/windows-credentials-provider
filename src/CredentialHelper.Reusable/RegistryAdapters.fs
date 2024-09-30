@@ -1,8 +1,7 @@
-﻿namespace CredentialHelper.RegistryAdapters
+﻿namespace CredentialHelper.Reusable.RegistryAdapters
 
-open CredentialHelper
-
-open Reusable
+open BReusable
+open CredentialHelper.Reusable
 
 module Registry =
     let withKey (root:Microsoft.Win32.RegistryKey) (path:string) f =
@@ -15,17 +14,28 @@ module Registry =
 open Registry
 
 module Diag =
+    type DiagnosticTargetingType =
+        | All
+        | SpecificKeys of string list
+
     let outputRegistryInfo (dllComGuid: System.Guid) =
         let indentValue = "\t"
         let guidStr = dllComGuid |> string |> System.String.toUpper |> sprintf "{%s}"
         let getNext indent = $"%s{indent}{indentValue}"
 
-        let rec walkTree (root:Microsoft.Win32.RegistryKey) indent limit path =
+        let rec walkTree (root:Microsoft.Win32.RegistryKey) indent limit (path,tdd) =
             withKey root path (fun sk ->
                 // diagnostics
+                let filter =
+                    match tdd with
+                    | DiagnosticTargetingType.All -> id
+                    | DiagnosticTargetingType.SpecificKeys items ->
+                        Seq.filter(fun vn -> items |> List.exists(fun cvn -> vn = cvn))
+
                 let vns = sk.GetValueNames()
                 //printfn "%s\\%s - %i values" root.Name path <| Seq.length vns
                 vns
+                |> filter
                 |> Seq.iter(fun vn ->
                     let v =
                         try
@@ -37,7 +47,7 @@ module Diag =
                 |> Seq.iter(fun skn ->
                     printfn "%s%s" indent skn
                     if limit > 1 then
-                        walkTree root (getNext indent) (limit - 1) skn
+                        walkTree root (getNext indent) (limit - 1) (skn,tdd)
                 )
                 Ok ()
             )
@@ -53,14 +63,28 @@ module Diag =
 
         printEmptyBanner()
         [
-            Microsoft.Win32.Registry.LocalMachine, @"SOFTWARE\Microsoft\Windows\CurrentVersion\Authentication\Credential Providers\" + guidStr
+            Microsoft.Win32.Registry.LocalMachine, [
+                //https://superuser.com/a/392309/39536
+                @"SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\CredUI", DiagnosticTargetingType.All
+                // has a value called dontdisplaylastusername that may be relevant
+                @"SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System", DiagnosticTargetingType.SpecificKeys ["dontdisplaylastusername"]
+
+                @"SOFTWARE\Microsoft\Windows\CurrentVersion\Authentication\Credential Providers\" + guidStr, DiagnosticTargetingType.All
+
+                @"SOFTWARE\Microsoft\Windows NT\CurrentVersion\PasswordLess\Device", DiagnosticTargetingType.All
+
+                // https://stackoverflow.com/questions/255669/how-to-enable-assembly-bind-failure-logging-fusion-in-net
+                //@"SOFTWARE\Microsoft\Fusion"
+
+                // HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\SystemCertificates
+            ]
             //Microsoft.Win32.Registry.ClassesRoot, @"CLSID\" + guidStr
-            Microsoft.Win32.Registry.LocalMachine, @"SOFTWARE\Microsoft\Windows NT\CurrentVersion\PasswordLess\Device"
         ]
-        |> List.iter(fun (r,p) ->
+        |> List.collect(fun (r,p) -> p |> List.map(fun item -> r,item))
+        |> List.iter(fun (r,(p,dtt)) ->
             try
                 printfn "Attempting to check %s-%s" r.Name p
-                walkTree r indentValue 2 p
+                walkTree r indentValue 2 (p,dtt)
             with ex ->
                 let t = tryGetTypeName ex
                 eprintfn "Failed to walk %s - %s: %s(%s)" r.Name p t ex.Message

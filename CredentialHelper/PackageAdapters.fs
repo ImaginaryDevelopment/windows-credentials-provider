@@ -1,6 +1,6 @@
 ﻿namespace CredentialHelper.PackageAdapters
 
-open Reusable
+open BReusable
 
 module Cereal =
     let deserialize<'t>(x:string) =

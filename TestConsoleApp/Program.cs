@@ -3,6 +3,7 @@
 using System;
 using System.Threading;
 
+using CredentialHelper;
 using CredentialHelper.UI;
 
 using WindowsCredentialProviderTest;
@@ -15,13 +16,13 @@ class Program
         // arg[0] is our app name, right?
         var runType =
 #if DEBUG
-                CredentialHelper.CommandParser.CommandType.ShowUI;
+            CredentialHelper.CommandParser.CommandType.NewApiCall("320016909");
 #else
-                CredentialHelper.CommandParser.getCommandType(Environment.GetCommandLineArgs());
+            CredentialHelper.CommandParser.getCommandType(Environment.GetCommandLineArgs());
 #endif
 
         Console.WriteLine(runType);
-        Log.LogText("(" + CredentialHelper.UI.PartialGen.Built.ToString("yyyyMMdd") + "): Run type:" + runType.ToString());
+        Log.LogText("(" + CredentialHelper.Generated.PartialGen.Built.ToString("yyyyMMdd") + "): Run type:" + runType.ToString());
         if (runType.IsAttemptLogin)
         {
             var networkCredential = CredentialsDialog.GetCredentials("Hey!", "We would like a login.");
@@ -71,7 +72,11 @@ class Program
 
         } else if (runType.IsApiCall)
         {
-            TryApiCall();
+            if(CredentialHelper.CommandParser.CommandType.TryGetApiQrCode(runType)?.Value is string qrCode && !String.IsNullOrWhiteSpace(qrCode))
+            {
+                TryApiCall(qrCode);
+            } else TryApiCall();
+
         } else if (runType.IsShowArgs)
         {
             ShowArgs();
@@ -90,7 +95,7 @@ class Program
     static void RunImpersonation(CredentialHelper.ApiClient.VerificationResult vr)
     {
         Log.LogText("Attempting impersonation");
-        var impSuccess = ImpersonationHelper.RunImpersonated(vr, () => Log.LogText("Impersonation running", Reusable.EventLogType.Warning));
+        var impSuccess = ImpersonationHelper.RunImpersonated(vr, () => Log.LogText("Impersonation running", BReusable.EventLogType.Warning));
         if (!impSuccess)
         {
             Console.Error.WriteLine($"Failed to impersonate for:{vr.Domain}\\{vr.Username}");
@@ -139,13 +144,14 @@ class Program
         CredentialHelper.CommandParser.showHelp();
     }
 
-    static void TryApiCall()
+    static void TryApiCall(string qrCode = null)
     {
         Log.LogMethodCall();
         var devApiUrl = Form1.AppConfig.DevApi;
-        var baseUrl = CredentialHelper.ApiClient.BaseUrl.TryCreate(devApiUrl).ResultValue;
-        var r = CredentialHelper.ApiClient.tryValidate(Form1.AppConfig, baseUrl, new CredentialHelper.ApiClient.AuthPost("1"), ct: CancellationToken.None).Result;
-        Console.WriteLine(r);
+        //var baseUrl = CredentialHelper.ApiClient.BaseUrl.TryCreate(devApiUrl).ResultValue;
+        //var qrCodeValue = qrCode?.ToString() ?? "1";
+        //var r = CredentialHelper.ApiClient.tryValidate(Form1.AppConfig, baseUrl, new CredentialHelper.ApiClient.AuthPost(qrCodeValue), ct: CancellationToken.None).Result;
+        CompositionRoot.tryApiCall(Form1.AppConfig, devApiUrl, qrCode);
     }
 
     static TestWindowsCredentialProvider ValidateCP(object o)

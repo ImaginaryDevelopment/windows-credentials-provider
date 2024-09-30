@@ -1,4 +1,4 @@
-﻿module Reusable
+﻿module BReusable
 
 open System
 
@@ -19,8 +19,14 @@ let inline tryGetTypeName(value:obj) =
         try
             value.GetType().Name
         with ex ->
-            eprintfn "Failed to read type name"
+            eprintfn "Failed to read type name: %s" ex.Message
             "<typeUnk>"
+
+let inline formatException (ex:exn) = 
+    let t = tryGetTypeName ex
+    $"{t}:{ex.Message}"
+
+let (|FormatException|) ex = formatException ex
 
 let tee f x =
     f x
@@ -43,6 +49,9 @@ module Option =
         | x -> Some x
     let inline ofZeroOrPositive value =
         if value >= LanguagePrimitives.GenericZero then Some value else None
+
+    let inline ofPositive value =
+        if value > LanguagePrimitives.GenericZero then Some value else None
 
     let inline ofTrue value =
         match value with
@@ -202,6 +211,8 @@ let inline fromParser f x =
 let inline tryParseInt (x:string) : int option = x |> fromParser System.Int32.TryParse
 let inline tryParseGuid (x:string) : Guid option = x |> fromParser System.Guid.TryParse
 
+let (|TryParseInt|_|) (x:string) : int option = tryParseInt x
+
 
 let inline createDisposable (onDispose: unit -> unit) =
     {new System.IDisposable with member x.Dispose() = onDispose()}
@@ -237,6 +248,19 @@ let tryDispose title x =
             dispose x
         with _ ->
             eprintfn "Failed to dispose: '%s'" title
+
+module Map =
+
+    let addListItem k v m =
+        match m |> Map.tryFind k with
+        | None -> m |> Map.add k [v]
+        | Some items -> m |> Map.add k (v::items)
+
+    let mapListLength m =
+        m
+        |> Map.map(fun _ -> List.length)
+    let tryHead m =
+        m |> Map.tryPick (fun k v -> Some(k,v))
 
 type DisposalTracker<'t when 't :> IDisposable>(msg, value, throwOnDisposedAccess) =
     let gId = Guid.NewGuid()
@@ -289,7 +313,6 @@ type DisposalTracker<'t when 't :> IDisposable>(msg, value, throwOnDisposedAcces
             )
 
     member x.Dispose() = x.Dispose("?")
-
 
     interface IDisposable with
         member x.Dispose() = x.Dispose()
@@ -361,17 +384,8 @@ module Controls =
         let inline f () = (^t: (member set_Enabled: bool -> unit)(control,enabled))
         setInvokedIfNot control oldValue f enabled
 
-module Map =
-    let addListItem k v m =
-        match m |> Map.tryFind k with
-        | None -> m |> Map.add k [v]
-        | Some items -> m |> Map.add k (v::items)
-
-    let mapListLength m =
-        m
-        |> Map.map(fun _ -> List.length)
-
 module Async =
+
     open System.Runtime.CompilerServices
     open System.Threading
     open System.Threading.Tasks
@@ -425,6 +439,7 @@ let tryInvokes functions =
         with _ -> None
     )
     |> List.tryHead
+
 type OutputType =
     | StdOut
     | StdError
@@ -441,7 +456,7 @@ module Process =
         p.WaitForExit()
         p.ExitCode
 
-    let executeProcessHarnessed exe args =
+    let executeProcessHarnessed exe args : (int*(OutputType*string)list) =
         let outs = System.Collections.Concurrent.ConcurrentQueue()
         let addOut x = outs.Enqueue(x)
         let ec = executeProcessCaptured exe args addOut

@@ -128,7 +128,7 @@
                 return HResultValues.S_OK;
             } catch (Exception ex)
             {
-                Log.LogText(nameof(GetFieldDescriptorAt) + ":" + ex.Message, Reusable.EventLogType.Error);
+                Log.LogText(nameof(GetFieldDescriptorAt) + ":" + ex.Message, BReusable.EventLogType.Error);
                 return errResult;
             }
         }
@@ -158,7 +158,7 @@
                 return HResultValues.S_OK;
             } catch (Exception ex)
             {
-                Log.LogText(nameof(GetCredentialAt) + ":" + ex.Message, Reusable.EventLogType.Error);
+                Log.LogText(nameof(GetCredentialAt) + ":" + ex.Message, BReusable.EventLogType.Error);
                 ppcpc = null;
                 return HResultValues.E_FAIL;
             }

@@ -1,6 +1,8 @@
-﻿module CredentialHelper.Logging
+﻿module CredentialHelper.Reusable.Logging
 
-open Reusable
+open BReusable
+
+open System.Diagnostics
 
 open System.IO
 
@@ -200,7 +202,8 @@ let logStartup fla =
                         [
                             "LastWrite:"+ fi.LastWriteTime.ToString("o")
                             "Created:" + fi.CreationTime.ToString("o")
-                            "SHA:60b5d16"
+                            // changing this one line, changes the sha, so amend won't work as a hack here
+                            "PreviousSHA:60b5d16"
                         ]
                     )
                     |> Option.defaultValue List.empty

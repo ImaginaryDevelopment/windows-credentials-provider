@@ -1,7 +1,7 @@
 ﻿module CredentialHelper.CameraControl
 
-open Reusable
-open Reusable.Controls
+open BReusable
+open BReusable.Controls
 
 open System
 open System.Collections.Generic
@@ -46,6 +46,7 @@ type CameraState =
     | Initializing
     | Started
     with
+        // https://stackoverflow.com/questions/4168220/implement-c-sharp-equality-operator-from-f
         static member op_Equality(left:CameraState, right: CameraState) =
             left = right
 
@@ -412,10 +413,10 @@ module UI =
                 |> Async.RunSynchronously
                 |> function 
                     | Choice1Of2(Ok v) -> Ok v
-                    | Choice1Of2(Error e) -> Error e
+                    | Choice1Of2(Error e) -> Error (ApiClient.ApiResultError.ToErrorMessage e)
                     | Choice2Of2 e ->
-                        let exT = e.GetType().Name
-                        Error $"{exT}:{e.Message}:{e.StackTrace}"
+                        let str = formatException e
+                        Error $"{str}:{e.StackTrace}"
                 |> function
                     | Error e -> Error(ApiValidationFailed e)
                     | Ok v ->

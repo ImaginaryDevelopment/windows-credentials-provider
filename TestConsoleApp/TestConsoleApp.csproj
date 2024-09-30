@@ -2,6 +2,7 @@
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProjectGuid>{526F390F-E03D-4A41-BDC7-2A07BA5B1304}</ProjectGuid>
@@ -34,8 +35,15 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>5</WarningLevel>
   </PropertyGroup>
-  <PropertyGroup>
-    <ApplicationManifest>app.manifest</ApplicationManifest>
+  <PropertyGroup />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'SourceGenDebug|AnyCPU'">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>bin\SourceGenDebug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <DebugType>full</DebugType>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <LangVersion>latest</LangVersion>
+    <ErrorReport>prompt</ErrorReport>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="FSharp.Core, Version=8.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
@@ -68,6 +76,14 @@
     <ProjectReference Include="..\CredentialHelper\CredentialHelper.fsproj">
       <Project>{1ff1db38-5c09-4443-9f48-3a00f228dba4}</Project>
       <Name>CredentialHelper</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\src\CredentialHelper.Generated\CredentialHelper.Generated.csproj">
+      <Project>{42a62d32-d807-4981-8bdf-c7deb6df2dcb}</Project>
+      <Name>CredentialHelper.Generated</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\src\CredentialHelper.Reusable\CredentialHelper.Reusable.fsproj">
+      <Project>{47ced528-d3f3-43a1-90cb-8f98b7c524c9}</Project>
+      <Name>CredentialHelper.Reusable</Name>
     </ProjectReference>
     <ProjectReference Include="..\src\CredentialHelper.UI\CredentialHelper.UI.csproj">
       <Project>{8bae8cec-5892-43b2-999e-d1781b75c38b}</Project>

@@ -3,7 +3,7 @@
 open System.Threading
 open System.Threading.Tasks
 
-open Reusable
+open BReusable
 
 type ErrorType = string
 
@@ -53,8 +53,29 @@ let createVerifyQrCodeDelegate: _ -> CredentialDelegateType =
     fun config ->
         verifyQrCode config
 
-let outputDiagnostics (dllComGuid) =
-    RegistryAdapters.Diag.outputDiagnostics(dllComGuid)
+let tryApiCall (appConfig,devApiUrl) qrCodeOpt =
+    CredentialHelper.ApiClient.BaseUrl.TryCreate devApiUrl
+    |> Result.bind(fun baseUrl ->
+        let qrCodeValue = qrCodeOpt |> Option.defaultValue ""
+        let ap : ApiClient.AuthPost = {Code=qrCodeValue}
+        let r = CredentialHelper.ApiClient.tryValidate appConfig baseUrl (ap, CancellationToken.None) |> Async.AwaitTask |> Async.RunSynchronously
+        r |> Result.mapError ApiClient.ApiResultError.ToErrorMessage
+    )
+    |> function
+        | Ok v -> 
+            printfn "%A" v
+        | Error e ->
+            eprintfn "%A" e
+
+let outputDiagnostics dllComGuid =
+    // registry
+    CredentialHelper.Reusable.RegistryAdapters.Diag.outputDiagnostics dllComGuid
+    // certificate
+    CredentialHelper.Reusable.CertAdapters.outputDiagnostics()
+    // dsregcmd
+    CredentialHelper.Reusable.ProcessAdapters.DsRegCmd.getStatus()
+    |> Result.map CredentialHelper.Reusable.ProcessAdapters.DsRegCmd.getWorkplaces
+    |> printfn "%A"
 
 
 type WorkerState =
