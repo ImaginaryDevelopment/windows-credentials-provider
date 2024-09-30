@@ -172,6 +172,8 @@ type CameraControl(imageProp: Property<Image>, sleepFetchOpt: unit -> int option
                     let toDispose = image // imageProp.Getter()
                     // store the image locally
                     let bm = BitmapConverter.ToBitmap frame
+                    // https://stackoverflow.com/questions/9758403/flipping-an-image-horizontally-in-opencvsharp
+                    bm.RotateFlip(RotateFlipType.Rotate180FlipY)
                     image <- Some (new DisposalTracker<_>("BitFrame", bm, false))
                     // set the image into the parent prop
                     imageProp.Setter bm

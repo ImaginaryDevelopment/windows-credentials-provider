@@ -15,11 +15,11 @@ class Program
     {
         // arg[0] is our app name, right?
         var runType =
-#if DEBUG
-            CredentialHelper.CommandParser.CommandType.NewApiCall("320016909");
-#else
+//#if DEBUG
+//            CredentialHelper.CommandParser.CommandType.NewApiCall("320016909");
+//#else
             CredentialHelper.CommandParser.getCommandType(Environment.GetCommandLineArgs());
-#endif
+//#endif
 
         Console.WriteLine(runType);
         Log.LogText("(" + CredentialHelper.Generated.PartialGen.Built.ToString("yyyyMMdd") + "): Run type:" + runType.ToString());

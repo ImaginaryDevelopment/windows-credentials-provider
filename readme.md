@@ -55,6 +55,11 @@ https://stackoverflow.com/questions/7092553/turn-a-simple-c-sharp-dll-into-a-com
 https://stackoverflow.com/questions/4198583/how-do-i-register-a-net-com-dll-with-regsvr32
 https://github.com/DavidWeiss2/windows-Credential-Provider-library
 https://techcommunity.microsoft.com/t5/itops-talk-blog/deep-dive-logging-on-to-windows/ba-p/2420705?WT.mc_id=modinfra-30798-socuff
+https://stackoverflow.com/questions/4729302/how-to-retrieve-all-certificates-in-your-x509store
+https://paulstovell.com/x509certificate2/
+https://www.webdevtutor.net/blog/c-sharp-x509certificate2-with-private-key
+https://stackoverflow.com/questions/48196350/generate-and-sign-certificate-request-using-pure-net-framework
+https://stackoverflow.com/questions/125341/how-do-you-do-impersonation-in-net/7250145#7250145
 
 ## alternate approaches
 
