@@ -78,7 +78,11 @@ module Diag =
 
                 // HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\SystemCertificates
             ]
-            //Microsoft.Win32.Registry.ClassesRoot, @"CLSID\" + guidStr
+            Microsoft.Win32.Registry.ClassesRoot, [
+                @"CLSID\" + guidStr, DiagnosticTargetingType.All
+                @"CLSID\" + guidStr + @"\InprocServer32", DiagnosticTargetingType.All
+                @"CLSID\" + guidStr + @"\InprocServer32", DiagnosticTargetingType.SpecificKeys [ "CodeBase" ]
+            ]
         ]
         |> List.collect(fun (r,p) -> p |> List.map(fun item -> r,item))
         |> List.iter(fun (r,(p,dtt)) ->
@@ -92,24 +96,23 @@ module Diag =
         )
         printEmptyBanner()
 
-    let outputDsRegInfo() =
-        printfn "DsReg:"
-        ProcessAdapters.DsRegCmd.getStatus()
-        |> function
-            | Ok outs ->
-                outs
-                |> Map.iter(fun category m ->
-                    printfn "\t%s" category
-                    m
-                    |> Map.iter(fun key value ->
-                        printfn "\t\t%s:%s" key value
-                    )
-                )
-            | Error (ec,outs) ->
-                ProcessAdapters.Helpers.printOuts outs
-                eprintfn "Ec: %i" ec
+    //let outputDsRegInfo() =
+    //    printfn "DsReg:"
+    //    ProcessAdapters.DsRegCmd.getStatus()
+    //    |> function
+    //        | Ok outs ->
+    //            outs
+    //            |> Map.iter(fun category m ->
+    //                printfn "\t%s" category
+    //                m
+    //                |> Map.iter(fun key value ->
+    //                    printfn "\t\t%s:%s" key value
+    //                )
+    //            )
+    //        | Error (ec,outs) ->
+    //            ProcessAdapters.Helpers.printOuts outs
+    //            eprintfn "Ec: %i" ec
 
     let outputDiagnostics (dllComGuid: System.Guid) =
         outputRegistryInfo dllComGuid
-        //outputDsRegInfo()
 

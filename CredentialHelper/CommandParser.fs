@@ -7,12 +7,16 @@ type CommandType =
     | ShowUI
     | ApiCall of qrCodeValue: string option
     | AttemptLogin
-    | OutputDiagnostics
+    | OutputDiagnostics of usePauses:bool option
     | ShowArgs
     with
-        static member TryGetApiQrCode(ct) =
+        static member TryGetApiQrCode ct =
             match ct with
             | ApiCall (Some (ValueString iOpt)) -> Some iOpt
+            | _ -> None
+        static member TryGetOutputDiagnostics ct =
+            match ct with
+            | OutputDiagnostics usePauses -> usePauses
             | _ -> None
 
 let (|HasArg|_|) (arg:string) args =
@@ -30,7 +34,7 @@ let commands = [
     "-ui", ShowUI
     "-api", ApiCall None
     "-login", AttemptLogin
-    "-diag", OutputDiagnostics
+    "-diag", OutputDiagnostics None
     "-help", ShowArgs
 ]
 
@@ -53,7 +57,8 @@ let getCommandType (args: string[]) =
 
     | HasArg "-api" -> ApiCall None
     | HasArg "-ui" -> ShowUI
-    | HasArg "-diag" -> OutputDiagnostics
+    | HasArgPair "-diag" (ValueString "true") -> OutputDiagnostics (Some true)
+    | HasArg "-diag" -> OutputDiagnostics None
     | HasArg "-help" -> ShowArgs
     | _ -> AttemptLogin
 

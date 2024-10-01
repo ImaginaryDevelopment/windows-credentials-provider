@@ -67,15 +67,22 @@ let tryApiCall (appConfig,devApiUrl) qrCodeOpt =
         | Error e ->
             eprintfn "%A" e
 
-let outputDiagnostics dllComGuid =
+let outputDiagnostics pause dllComGuid =
+    let runPause title =
+        if pause || System.Diagnostics.Debugger.IsAttached then
+            printfn $"%s{title} finished --------------"
+            System.Console.ReadLine() |> ignore
     // registry
     CredentialHelper.Reusable.RegistryAdapters.Diag.outputDiagnostics dllComGuid
+    runPause "Registry"
     // certificate
     CredentialHelper.Reusable.CertAdapters.outputDiagnostics()
+    runPause "CertAdapters"
     // dsregcmd
     CredentialHelper.Reusable.ProcessAdapters.DsRegCmd.getStatus()
     |> Result.map CredentialHelper.Reusable.ProcessAdapters.DsRegCmd.getWorkplaces
     |> printfn "%A"
+    runPause "DsRegCmd"
 
 
 type WorkerState =
